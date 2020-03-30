@@ -2,15 +2,18 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 public class MainMenu : MonoBehaviour
 {
     public GameObject mainMenu, nReinasMenu;
+    public Dropdown tamañoTablero;
 
     public void goNReinasMenu()
     {
         mainMenu.gameObject.SetActive(false);
         nReinasMenu.gameObject.SetActive(true);
+        GameState.gameState.tamaño = 4;
     }
 
     public void goMainMenu()
@@ -24,45 +27,42 @@ public class MainMenu : MonoBehaviour
         SceneManager.LoadScene("Menu");
     }
 
-    public void go4ReinasProblem(){
-        GameState.gameState.tamaño = 4;
+    public void goNReinasProblem(){
         SceneManager.LoadScene("NReinasProblem");
+        GameState.gameState.problem = "NReinas";
+    }
+    public void goSudokuProblem()
+    {
+        SceneManager.LoadScene("NReinasProblem");
+        GameState.gameState.problem = "Sudoku";
     }
 
-    public void go5ReinasProblem()
+    public void defineWidht(int val)
     {
-        GameState.gameState.tamaño = 5;
-        SceneManager.LoadScene("NReinasProblem");
+        if (val == 0) {
+            GameState.gameState.tamaño = 4;
+        }
+        if (val == 1)
+        {
+            GameState.gameState.tamaño = 5;
+        }
+        if (val == 2)
+        {
+            GameState.gameState.tamaño = 6;
+        }
+        if (val == 3)
+        {
+            GameState.gameState.tamaño = 7;
+        }
+        if (val == 4)
+        {
+            GameState.gameState.tamaño = 8;
+        }
+        if (val == 5)
+        {
+            GameState.gameState.tamaño = 9;
+        }
     }
-
-    public void go6ReinasProblem()
-    {
-        GameState.gameState.tamaño = 6;
-        SceneManager.LoadScene("NReinasProblem");
-    }
-
-    public void go7ReinasProblem()
-    {
-        GameState.gameState.tamaño = 7;
-        SceneManager.LoadScene("NReinasProblem");
-    }
-
-    public void go8ReinasProblem()
-    {
-        GameState.gameState.tamaño = 8;
-        SceneManager.LoadScene("NReinasProblem");
-    }
-
-    public void go9ReinasProblem()
-    {
-        GameState.gameState.tamaño = 9;
-        SceneManager.LoadScene("NReinasProblem");
-    }
-
-    public void go10ReinasProblem()
-    {
-        GameState.gameState.tamaño = 10;
-        SceneManager.LoadScene("NReinasProblem");
-    }
+    
 
 }

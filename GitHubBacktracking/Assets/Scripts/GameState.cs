@@ -6,6 +6,7 @@ public class GameState : MonoBehaviour
 {
     public static GameState gameState;
     public int tamaño = 4;
+    public string problem = "";
 
     public void Awake()
     {
