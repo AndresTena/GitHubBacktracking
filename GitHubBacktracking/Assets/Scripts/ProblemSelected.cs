@@ -9,10 +9,15 @@ public class ProblemSelected : MonoBehaviour
     void Start()
     {
         if ("NReinas" == GameState.gameState.problem) {
+
             NReinas.gameObject.SetActive(true);
-        }else if ("Sudoku" == GameState.gameState.problem)
+            Sudoku.gameObject.SetActive(false);
+
+        }
+        else if ("Sudoku" == GameState.gameState.problem)
         {
             Sudoku.gameObject.SetActive(true);
+            NReinas.gameObject.SetActive(false);
         }
 
     }

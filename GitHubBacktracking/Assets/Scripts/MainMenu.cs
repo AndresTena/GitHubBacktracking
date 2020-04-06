@@ -6,7 +6,7 @@ using UnityEngine.UI;
 
 public class MainMenu : MonoBehaviour
 {
-    public GameObject mainMenu, nReinasMenu;
+    public GameObject mainMenu, nReinasMenu,sudokuMenu;
     public Dropdown tamañoTablero;
 
     public void goNReinasMenu()
@@ -16,10 +16,18 @@ public class MainMenu : MonoBehaviour
         GameState.gameState.tamaño = 4;
     }
 
+    public void goSudokuMenu()
+    {
+        mainMenu.gameObject.SetActive(false);
+        sudokuMenu.gameObject.SetActive(true);
+        GameState.gameState.tamaño = 4;
+    }
+
     public void goMainMenu()
     {
         mainMenu.gameObject.SetActive(true);
         nReinasMenu.gameObject.SetActive(false);
+        sudokuMenu.gameObject.SetActive(false);
     }
 
     public void goMenuScene()
@@ -37,7 +45,7 @@ public class MainMenu : MonoBehaviour
         GameState.gameState.problem = "Sudoku";
     }
 
-    public void defineWidht(int val)
+    public void defineWidhtNReinas(int val)
     {
         if (val == 0) {
             GameState.gameState.tamaño = 4;
@@ -63,6 +71,16 @@ public class MainMenu : MonoBehaviour
             GameState.gameState.tamaño = 9;
         }
     }
-    
 
+    public void defineWidhtSudoku(int val)
+    {
+        if (val == 0)
+        {
+            GameState.gameState.tamaño = 4;
+        }
+        if (val == 1)
+        {
+            GameState.gameState.tamaño = 9;
+        }
+    }
 }

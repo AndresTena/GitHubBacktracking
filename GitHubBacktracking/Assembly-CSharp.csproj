@@ -66,6 +66,7 @@
     <Compile Include="Assets\Scripts\GameState.cs" />
     <Compile Include="Assets\Scripts\MainMenu.cs" />
     <Compile Include="Assets\Scripts\ProblemSelected.cs" />
+    <Compile Include="Assets\Scripts\SharedCode.cs" />
     <Compile Include="Assets\Scripts\TextColor.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\Benchmark01.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\Benchmark01_UGUI.cs" />

@@ -2,13 +2,14 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class DataHistory 
+public class DataHistory
 {
     public int[,] board;
     public int fil;
     public int col;
-    public bool diag1Ok, diag2Ok, colOk;
-    public string colorDiag1="Black";
+    public int num;
+    public bool diag1Ok, diag2Ok, colOk,filOk,cuadroOk,numeroBase,esSol;
+    public string colorDiag1 = "Black";
     public string colorDiag2 = "Black";
     public string colorCol = "Black";
     public List<int> vectorSolucion = new List<int>();
@@ -32,5 +33,19 @@ public class DataHistory
                 }
             }
         }
+    }
+
+    public DataHistory(int[,] sudoku, int fil, int col, int num, bool numeroBase, bool esSol, bool filOk=true, bool colOk=true, bool cuadroOk=true)
+    {
+        this.board = sudoku;
+        this.fil = fil;
+        this.col = col;
+        this.num = num;
+        this.filOk = filOk;
+        this.colOk = colOk;
+        this.cuadroOk = cuadroOk;
+        this.numeroBase = numeroBase;
+        this.esSol = esSol;
+
     }
 }

@@ -23,32 +23,32 @@ public class BacktrackingAdaptacion : MonoBehaviour
     public List<GameObject> posicionesIniciales;
 
 
-
-    List<DataHistory> boardHistory;
-    GameObject[,] piezasTablero;
-    GameObject[] reinas;
-    bool boardSolved = false;
-    bool firstTime = true;
-    bool play = true;
-    bool nextStep = true;
-    bool backStep = true;
-    bool nextN = false;
-    bool recuperarEstadoCorutina = false;
-    bool finished = false;
-    bool moverReina = false;
-    DataHistory data;
-    int i = -1;
-    int filaActual = 0;
-    int colActual = 0;
-    int fase = 0;
-    int filAnt;
-    float movementSpeed = 50f;
-    Vector3 towardsTarget;
-    float posicionXInicial;
-    List<int> vectorSolucion;
-    List<TextColor> pilaEjecucion;
-    List<TextMeshProUGUI> piscinaTextos;
-    List<string> piscinaTextosOriginal;
+ 
+    public List<DataHistory> boardHistory;
+    public GameObject[,] piezasTablero;
+    public GameObject[] reinas;
+    public bool boardSolved = false;
+    public bool firstTime = true;
+    public bool play = true;
+    public bool nextStep = true;
+    public bool backStep = true;
+    public bool nextN = false;
+    public bool recuperarEstadoCorutina = false;
+    public bool finished = false;
+    public bool moverReina = false;
+    public DataHistory data;
+    public int i = -1;
+    public int filaActual = 0;
+    public int colActual = 0;
+    public int fase = 0;
+    public int filAnt;
+    public float movementSpeed = 50f;
+    public Vector3 towardsTarget;
+    public float posicionXInicial;
+    public List<int> vectorSolucion;
+    public List<TextColor> pilaEjecucion;
+    public List<TextMeshProUGUI> piscinaTextos;
+    public List<string> piscinaTextosOriginal;
 
     // Start is called before the first frame update
     void Start()
@@ -1364,7 +1364,7 @@ public class BacktrackingAdaptacion : MonoBehaviour
 
     public void playFunc()
     {
-        if (firstTime)
+        if (firstTime && gameObject.active)
         {
             playButton.sprite = Resources.Load<Sprite>("pause");
             firstTime = false;
@@ -1376,13 +1376,13 @@ public class BacktrackingAdaptacion : MonoBehaviour
             NReinas(board, 0, boardVisualizer, vectorSolucion);
             boardSolved = true;
         }
-        else if (play)
+        else if (play && this.gameObject.activeSelf)
         {
             playButton.sprite = Resources.Load<Sprite>("play");
             play = false;
             StopAllCoroutines();
         }
-        else if (!play)
+        else if (!play && this.gameObject.activeSelf)
         {
             playButton.sprite = Resources.Load<Sprite>("pause");
             play = true;
@@ -1393,7 +1393,7 @@ public class BacktrackingAdaptacion : MonoBehaviour
 
     public void nextStepFunc()
     {
-        if (!play)
+        if (!play && gameObject.active)
         {
             if (i < boardHistory.Count - 1)
             {
@@ -1474,7 +1474,7 @@ public class BacktrackingAdaptacion : MonoBehaviour
 
     public void backStepFunc()
     {
-        if (!play && !moverReina)
+        if (!play && !moverReina && gameObject.active)
         {
             if (i >= 0)
             {
