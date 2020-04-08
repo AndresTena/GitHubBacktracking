@@ -61,6 +61,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Assets\Scripts\BacktrackingAdaptacion.cs" />
+    <Compile Include="Assets\Scripts\BacktrackingLaberinto.cs" />
     <Compile Include="Assets\Scripts\BacktrackingSudoku.cs" />
     <Compile Include="Assets\Scripts\DataHistory.cs" />
     <Compile Include="Assets\Scripts\GameState.cs" />

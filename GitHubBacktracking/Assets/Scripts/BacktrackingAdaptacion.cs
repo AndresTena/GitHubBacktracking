@@ -13,7 +13,7 @@ public class BacktrackingAdaptacion : MonoBehaviour
     public Text vectorSolucionText;
     public Image playButton;
     public TextMeshProUGUI esFactibleText, colText, diag1Text, diag2Text, defNReinasText, ifKText, esSolTrueText, elseText, esSolFalseText, col0Text, whileNotEsSolText, IfEsFactibleText, defEsFactibleFunc, defEsFactibleText, returnEsFactibleText, tab1Text, NReinasRecursiveText, col1Text, returnDefReinasText;
-    public TextMeshProUGUI filActualText, colActualText, esSolActualText;
+    public TextMeshProUGUI filActualText, colActualText, esSolActualText, numActualText;
     public Text tablero;
     public Scrollbar speedNextMove;
     public GameObject targetPosition;
@@ -53,6 +53,7 @@ public class BacktrackingAdaptacion : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
+        numActualText.gameObject.SetActive(false);
         tamaño = GameState.gameState.tamaño;
         pilaEjecucion = new List<TextColor>();
         piscinaTextos = new List<TextMeshProUGUI>();

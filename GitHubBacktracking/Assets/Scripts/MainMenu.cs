@@ -39,10 +39,17 @@ public class MainMenu : MonoBehaviour
         SceneManager.LoadScene("NReinasProblem");
         GameState.gameState.problem = "NReinas";
     }
+
     public void goSudokuProblem()
     {
         SceneManager.LoadScene("NReinasProblem");
         GameState.gameState.problem = "Sudoku";
+    }
+
+    public void goLaberintoProblem()
+    {
+        SceneManager.LoadScene("NReinasProblem");
+        GameState.gameState.problem = "Laberinto";
     }
 
     public void defineWidhtNReinas(int val)

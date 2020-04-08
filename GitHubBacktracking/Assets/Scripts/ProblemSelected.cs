@@ -12,11 +12,19 @@ public class ProblemSelected : MonoBehaviour
 
             NReinas.gameObject.SetActive(true);
             Sudoku.gameObject.SetActive(false);
+            Laberinto.gameObject.SetActive(false);
 
         }
         else if ("Sudoku" == GameState.gameState.problem)
         {
             Sudoku.gameObject.SetActive(true);
+            NReinas.gameObject.SetActive(false);
+            Laberinto.gameObject.SetActive(false);
+        }
+        else if ("Laberinto" == GameState.gameState.problem)
+        {
+            Laberinto.gameObject.SetActive(true);
+            Sudoku.gameObject.SetActive(false);
             NReinas.gameObject.SetActive(false);
         }
 

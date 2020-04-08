@@ -70,7 +70,6 @@ public class BacktrackingSudoku : MonoBehaviour
         textos = new List<TextMeshProUGUI>();
         menu = new SharedCode();
         sudokuHistory = new List<DataHistory>();
-        pilaEjecucion = new List<TextColor>();
         inicializarTextos();
         var result = resolverSudokuVA(sudoku, sudokuVisualizer, 0);
         sudoku = result.Item1;
@@ -1522,7 +1521,7 @@ public class BacktrackingSudoku : MonoBehaviour
                     aux[i, j] = sudokuVisualizer[i, j];
                 }
             }
-            data = new DataHistory(aux, tamaño-1, tamaño-1, 0, false,esSol);
+            data = new DataHistory(aux, tamaño-1, tamaño-1, 0, false,esSol,true);
             sudokuHistory.Add(data);
         }
         else {
@@ -1542,7 +1541,7 @@ public class BacktrackingSudoku : MonoBehaviour
                     }
                 }
                 numeroBase = true;
-                data = new DataHistory(aux, fila, col, 0, numeroBase,esSol);
+                data = new DataHistory(aux, fila, col, 0, numeroBase,esSol, true);
                 sudokuHistory.Add(data);
                 var result = resolverSudokuVA(sudoku, sudokuVisualizer, casilla+1);
                 sudoku = result.Item1;

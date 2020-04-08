@@ -7,8 +7,8 @@ public class DataHistory
     public int[,] board;
     public int fil;
     public int col;
-    public int num;
-    public bool diag1Ok, diag2Ok, colOk,filOk,cuadroOk,numeroBase,esSol;
+    public int num, k;
+    public bool diag1Ok, diag2Ok, colOk,filOk,cuadroOk,numeroBase,esSol,esFactible;
     public string colorDiag1 = "Black";
     public string colorDiag2 = "Black";
     public string colorCol = "Black";
@@ -46,6 +46,17 @@ public class DataHistory
         this.cuadroOk = cuadroOk;
         this.numeroBase = numeroBase;
         this.esSol = esSol;
+
+    }
+
+    public DataHistory(int[,] laberinto, int fil, int col, int k, bool esSol, bool esFactible)
+    {
+        this.board = laberinto;
+        this.fil = fil;
+        this.col = col;
+        this.k = k;
+        this.esSol = esSol;
+        this.esFactible = esFactible;
 
     }
 }
