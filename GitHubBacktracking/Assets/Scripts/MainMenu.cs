@@ -6,9 +6,11 @@ using UnityEngine.UI;
 
 public class MainMenu : MonoBehaviour
 {
+    //Declaración de variables.
     public GameObject mainMenu, nReinasMenu,sudokuMenu;
     public Dropdown tamañoTablero;
 
+    //Acceder al menu de NReinas.
     public void goNReinasMenu()
     {
         mainMenu.gameObject.SetActive(false);
@@ -16,6 +18,7 @@ public class MainMenu : MonoBehaviour
         GameState.gameState.tamaño = 4;
     }
 
+    //Acceder al menu de Sudoku.
     public void goSudokuMenu()
     {
         mainMenu.gameObject.SetActive(false);
@@ -23,6 +26,7 @@ public class MainMenu : MonoBehaviour
         GameState.gameState.tamaño = 4;
     }
 
+    //Acceder al MainMenu
     public void goMainMenu()
     {
         mainMenu.gameObject.SetActive(true);
@@ -30,28 +34,33 @@ public class MainMenu : MonoBehaviour
         sudokuMenu.gameObject.SetActive(false);
     }
 
+    //Cambiar a la escena del menu.
     public void goMenuScene()
     {
         SceneManager.LoadScene("Menu");
     }
 
+    //Cambiar a la escena del problema NReinas.
     public void goNReinasProblem(){
         SceneManager.LoadScene("NReinasProblem");
         GameState.gameState.problem = "NReinas";
     }
 
+    //Cambiar a la escena del problema Sudoku.
     public void goSudokuProblem()
     {
         SceneManager.LoadScene("NReinasProblem");
         GameState.gameState.problem = "Sudoku";
     }
 
+    //Cambiar a la escena del problema Laberinto.
     public void goLaberintoProblem()
     {
         SceneManager.LoadScene("NReinasProblem");
         GameState.gameState.problem = "Laberinto";
     }
 
+    //Elige el tamaño del tablero de las NReinas.
     public void defineWidhtNReinas(int val)
     {
         if (val == 0) {
@@ -79,6 +88,7 @@ public class MainMenu : MonoBehaviour
         }
     }
 
+    //Elige el tamaño del tablero del sudoku.
     public void defineWidhtSudoku(int val)
     {
         if (val == 0)

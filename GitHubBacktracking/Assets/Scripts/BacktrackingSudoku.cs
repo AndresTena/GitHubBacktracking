@@ -7,37 +7,40 @@ using UnityEngine.UI;
 
 public class BacktrackingSudoku : MonoBehaviour
 {
-
+    //Declaracion de variables públicas.
     public Text sudokuText;
     public TextMeshProUGUI esFactibleFunction, sudokuVAText, ifCasillaText, esSolTrueText, elseCasillaText, esSolFalseText, Ntext, filaText, colText, ifSudokuText, sudokuVARecursiveText, elseSudokuText, num1Text, whileNotEsSolText, ifEsFactibleText, sudokuNumText, sudokuVARecursive2Text, ifNotEsSolText, sudoku0Text, num1v2Text, returnSudokuText, esFactibleFunctionText, filaOKText, colOkText, filaIniText9x9, filaFinText9x9, colIniText9x9, colFinText9x9, filaIniText4x4, filaFinText4x4, colIniText4x4, colFinText4x4, cuadroOkText, returnEsFactibleText;
-    public TextMeshProUGUI esSolActualText, filActualText, colActualText, numActualText;
+    public TextMeshProUGUI esSolActualText, filActualText, colActualText, numActualText, progresoText;
     public GameObject filCol9x9, filCol4x4;
     public Image playButton;
     public Scrollbar speedNextMove;
     public List<GameObject> objetoTablero;
+    public Slider slider;
 
+    //Declaracion de variables privadas.
     TextMeshProUGUI filaIniText, filaFinText, colIniText, colFinText;
     List<DataHistory> sudokuHistory;
-    List<TextMeshProUGUI> textos;
-    List<TextColor> pilaEjecucion;
+    List<List<TextMeshProUGUI>> textos;
+    List<List<string>> textosSinPintar;
     GameObject[,] piezasTablero;
     DataHistory data;
     SharedCode menu;
     int tamaño = GameState.gameState.tamaño;
     bool nextStep = true;
+    bool nextText = false;
     bool firstTime = true;
     bool backStep = false;
     bool play = false;
     bool recuperarEstadoCorutina = false;
+    int problem = 2;
     int i = -1;
     int fase = 0;
     int[,] sudokuInicial;
     int valorTamaño = 2;
-
-
-    // Start is called before the first frame update
+    
     void Start()
     {
+        //Inicializacion de variables dependiendo del tablero que se vaya a mostrar.
         tamaño = GameState.gameState.tamaño;
         int[,] sudoku, sudokuVisualizer;
         if (tamaño == 9)
@@ -49,9 +52,9 @@ public class BacktrackingSudoku : MonoBehaviour
             colIniText = colIniText9x9;
             colFinText = colFinText9x9;
             valorTamaño = 3;
-            sudoku = inicializar();
-            sudokuInicial = inicializar();
-            sudokuVisualizer = inicializar();
+            sudoku = inicializar9x9();
+            sudokuInicial = inicializar9x9();
+            sudokuVisualizer = inicializar9x9();
         }
         else
         {
@@ -66,16 +69,17 @@ public class BacktrackingSudoku : MonoBehaviour
             sudokuInicial = inicializar4x4();
             sudokuVisualizer = inicializar4x4();
         }
-        pilaEjecucion = new List<TextColor>();
-        textos = new List<TextMeshProUGUI>();
+        //Inicializamos variables.
+        textos = new List<List<TextMeshProUGUI>>();
+        textosSinPintar = new List<List<string>>();
         menu = new SharedCode();
         sudokuHistory = new List<DataHistory>();
-        inicializarTextos();
-        var result = resolverSudokuVA(sudoku, sudokuVisualizer, 0);
-        sudoku = result.Item1;
-        bool esSol = result.Item2;
-
         piezasTablero = new GameObject[tamaño, tamaño];
+        inicializarTextos();
+        //Resolvemos el problema y guardamos cada uno de los sudokus en una lista.
+        resolverSudokuVA(sudoku, sudokuVisualizer, 0);
+
+        //Guardamos la referencia visual de cada una de las piezas del sudoku en piezasTablero, para poder acceder a ellas.
         int indiceX = 0;
         int indiceY = 0;
         int i = 0;
@@ -99,123 +103,76 @@ public class BacktrackingSudoku : MonoBehaviour
             }
             indiceY += 1;
         }
+        //Pintamos el sudoku inicial.
+        printInitialSudoku(sudokuHistory[0], sudokuHistory[0].board, true);
     }
-
-    // Update is called once per frame
+    
     void Update()
     {
-        if (play) {
+        slider.value = (float)i / (float)(sudokuHistory.Count - 1);
+        progresoText.text = "Paso " + (i + 1) + " / " + sudokuHistory.Count;
+        if (play)
+        {
+            //Cuando una llamada recursiva se de.
             if (nextStep && i < sudokuHistory.Count - 1)
             {
                 nextStep = false;
                 i += 1;
                 List<TextMeshProUGUI> auxiliar = new List<TextMeshProUGUI>();
                 List<int> fasesAsociadas = new List<int>();
-                TextColor tableroEjecucion = new TextColor(fasesAsociadas, auxiliar);
-                pilaEjecucion.Add(tableroEjecucion);
+                BoardHistory tableroEjecucion = new BoardHistory(fasesAsociadas, auxiliar);
+                //Añadimos una nueva pila de ejecución para esta llamada recursiva.
+                menu.pilaEjecucion.Add(tableroEjecucion);
                 if (i != 0)
                 {
-                    estadoCorutina(sudokuHistory[i], fase, sudokuHistory.Count - 1 == i, sudokuHistory[i - 1].board);
-                }
-                else {
-                    estadoCorutina(sudokuHistory[i], fase, sudokuHistory.Count - 1 == i, sudokuInicial);
-                }
-            }
-            else if (recuperarEstadoCorutina)
-            {
-                recuperarEstadoCorutina = false;
-                if (i != 0)
-                {
-                    estadoCorutina(sudokuHistory[i], fase, sudokuHistory.Count - 1 == i, sudokuHistory[i - 1].board);
+                    //Empezamos una nueva corutina.
+                    StartCoroutine(waitForNextText(sudokuHistory[i], sudokuHistory.Count - 1 == i, sudokuHistory[i - 1].board));
                 }
                 else
                 {
-                    estadoCorutina(sudokuHistory[i], fase, sudokuHistory.Count - 1 == i, sudokuInicial);
+                    //Empezamos una nueva corutina.
+                    StartCoroutine(waitForNextText(sudokuHistory[i], sudokuHistory.Count - 1 == i, sudokuInicial));
+                }
+            }
+            else if (nextText)
+            {
+                nextText = false;
+                //Actualizamos la fase, es decir avanzamos hacia el siguiente paso. 
+                fase += 1;
+                if (i != 0)
+                {
+                    //Empezamos una nueva corutina.
+                    StartCoroutine(waitForNextText(sudokuHistory[i], sudokuHistory.Count - 1 == i, sudokuHistory[i - 1].board));
+                }
+                else
+                {
+                    //Empezamos una nueva corutina.
+                    StartCoroutine(waitForNextText(sudokuHistory[i], sudokuHistory.Count - 1 == i, sudokuInicial));
+                }
+
+            }
+            else if (recuperarEstadoCorutina)
+            {
+                //Retomamos la corutina en la que estabamos antes de pausar la ejecucion.
+                recuperarEstadoCorutina = false;
+                if (i != 0)
+                {
+                    //Empezamos una nueva corutina.
+                    StartCoroutine(waitForNextText(sudokuHistory[i], sudokuHistory.Count - 1 == i, sudokuHistory[i - 1].board));
+                }
+                else
+                {
+                    //Empezamos una nueva corutina.
+                    StartCoroutine(waitForNextText(sudokuHistory[i], sudokuHistory.Count - 1 == i, sudokuInicial));
                 }
             }
         }
     }
 
-    public void estadoCorutina(DataHistory boardHistory, int fase, bool lastMove, int[,] sudokuAnterior)
-    {
-        //En que momento del pintado nos encontramos?
-
-        switch (fase)
-        {
-            case 0:
-                StartCoroutine(waitForDefSudoku(boardHistory, lastMove, sudokuAnterior));
-                break;
-            case 1:
-                StartCoroutine(waitForIfCasilla(boardHistory, lastMove));
-                break;
-            case 2:
-                StartCoroutine(waitForElseCasilla(boardHistory, lastMove));
-                break;
-            case 3:
-                StartCoroutine(waitForEsSolFalse(boardHistory, lastMove));
-                break;
-            case 4:
-                StartCoroutine(waitForN(boardHistory, lastMove));
-                break;
-            case 5:
-                StartCoroutine(waitForFilaCasilla(boardHistory, lastMove));
-                break;
-            case 6:
-                StartCoroutine(waitForColCasilla(boardHistory, lastMove));
-                break;
-            case 7:
-                StartCoroutine(waitForIfSudoku(boardHistory, lastMove));
-                break;
-            case 8:
-                StartCoroutine(waitForElseSudoku(boardHistory, lastMove));
-                break;
-            case 9:
-                StartCoroutine(waitForNum1(boardHistory, lastMove));
-                break;
-            case 10:
-                StartCoroutine(waitForWhileNotEsSol(boardHistory, lastMove));
-                break;
-            case 11:
-                StartCoroutine(waitForIfEsFactible(boardHistory, lastMove));
-                break;
-            case 12:
-                StartCoroutine(waitForEsFactibleFunction(boardHistory, lastMove));
-                break;
-            case 13:
-                StartCoroutine(waitForFilaOK(boardHistory, lastMove));
-                break;
-            case 14:
-                StartCoroutine(waitForColOK(boardHistory, lastMove));
-                break;
-            case 15:
-                StartCoroutine(waitForFilIni(boardHistory, lastMove));
-                break;
-            case 16:
-                StartCoroutine(waitForFilFin(boardHistory, lastMove));
-                break;
-            case 17:
-                StartCoroutine(waitForColIni(boardHistory, lastMove));
-                break;
-            case 18:
-                StartCoroutine(waitForColFin(boardHistory, lastMove));
-                break;
-            case 19:
-                StartCoroutine(waitForCuadroOk(boardHistory, lastMove));
-                break;
-            case 20:
-                StartCoroutine(waitForReturnEsFactible(boardHistory, lastMove));
-                break;
-            case 21:
-                StartCoroutine(waitForSudokuNum(boardHistory, lastMove));
-                break;
-            case 22:
-                StartCoroutine(waitForSudokuVARecursive2(boardHistory, lastMove));
-                break;
-        }
-    }
-
+    //Este método pintará la fase actual de la ejecucion, además de elegir el camino en caso de encontrarnos en un if o else, en base a los valores guardados en nuestro sudokuHistory, el cual guarda todos los valores de cada una de las fases del sudoku.
     public void faseDePintado(DataHistory sudokuHistory, int fase, bool lastMove, int[,] sudokuAnterior=null) {
 
+        //Actualizamos los textos mostrados por pantalla
         filActualText.text = "Fil actual: " + (sudokuHistory.fil + 1);
         colActualText.text = "Col actual: " + (sudokuHistory.col + 1);
         esSolActualText.text = "EsSol actual: "+ sudokuHistory.esSol;
@@ -223,697 +180,119 @@ public class BacktrackingSudoku : MonoBehaviour
         {
             numActualText.text = "Num actual: null";
         }
+        int camino = 0;
+        
         switch (fase)
         {
             case 0:
-                //Primer paso: pintado del defSudokuVA y del tablero;
                 printInitialSudoku(sudokuHistory, sudokuAnterior);
-                for (int i = 0; i < menu.piscinaTextos.Count; i++)
-                {
-                    menu.piscinaTextos[i].text = menu.piscinaTextosOriginal[i];
-                    menu.piscinaTextos[i].color = Color.white;
-                }
-                sudokuVAText.text = "def sudokuVA(sudoku, casilla):";
-                sudokuVAText.color = Color.cyan;
-                if (backStep == false)
-                {
-                    pilaEjecucion[i].fases.Add(fase);
-                    pilaEjecucion[i].pilaPintado.Add(sudokuVAText);
-                }
-                break;
-
-            case 1:
-                //Pintamos el ifCasilla;
-                for (int i = 0; i < menu.piscinaTextos.Count; i++)
-                {
-                    menu.piscinaTextos[i].text = menu.piscinaTextosOriginal[i];
-                    menu.piscinaTextos[i].color = Color.white;
-                }
-                ifCasillaText.text = "if casilla >= np.size(sudoku):";
-                ifCasillaText.color = Color.cyan;
-                if (backStep == false)
-                {
-                    pilaEjecucion[i].fases.Add(fase);
-                    pilaEjecucion[i].pilaPintado.Add(ifCasillaText);
-                }
-
                 break;
             case 2:
-                //Pinatmos el esSol True si es el ultimo movimiento o el else si no lo es;
-                for (int i = 0; i < menu.piscinaTextos.Count; i++)
-                {
-                    menu.piscinaTextos[i].text = menu.piscinaTextosOriginal[i];
-                    menu.piscinaTextos[i].color = Color.white;
-                }
+                //Si es el ultimo  tablero, es decir la solucion, finalizará la ejecucion, sino seguira con ella, este se trata del primer if del codigo.
                 if (lastMove)
                 {
-                    esSolTrueText.text = "esSol = True";
-                    esSolTrueText.color = Color.cyan;
-                    if (backStep == false)
-                    {
-                        pilaEjecucion[i].fases.Add(fase);
-                        pilaEjecucion[i].pilaPintado.Add(esSolTrueText);
-                    }
+                    camino = 0;
                 }
                 else
                 {
-                    elseCasillaText.text = "else:";
-                    elseCasillaText.color = Color.cyan;
-                    if (backStep == false)
-                    {
-                        pilaEjecucion[i].fases.Add(fase);
-                        pilaEjecucion[i].pilaPintado.Add(elseCasillaText);
-                    }
+                    camino = 1;
                 }
                 break;
             case 3:
-                //Pinatmos el esSol False;
-                for (int i = 0; i < menu.piscinaTextos.Count; i++)
-                {
-                    menu.piscinaTextos[i].text = menu.piscinaTextosOriginal[i];
-                    menu.piscinaTextos[i].color = Color.white;
-                }
+                //Continuacion del caso anterior
                 if (lastMove)
                 {
-                    returnSudokuText.text = "return sudoku, esSol";
-                    returnSudokuText.color = Color.cyan;
-                    if (backStep == false)
-                    {
-                        pilaEjecucion[i].fases.Add(fase);
-                        pilaEjecucion[i].pilaPintado.Add(returnSudokuText);
-                    }
+                    camino = 0;
                 }
                 else
                 {
-                    esSolFalseText.text = "esSol = False";
-                    esSolFalseText.color = Color.cyan;
-                    if (backStep == false)
-                    {
-                        pilaEjecucion[i].fases.Add(fase);
-                        pilaEjecucion[i].pilaPintado.Add(esSolFalseText);
-                    }
-                }
-                break;
-            case 4:
-                //Pinatmos el N = np.size y lo añadimos a la pila de ejecucion;
-                for (int i = 0; i < menu.piscinaTextos.Count; i++)
-                {
-                    menu.piscinaTextos[i].text = menu.piscinaTextosOriginal[i];
-                    menu.piscinaTextos[i].color = Color.white;
-                }
-                Ntext.text = "N = np.size(sudoku, 0)";
-                Ntext.color = Color.cyan;
-                if (backStep == false)
-                {
-                    pilaEjecucion[i].fases.Add(fase);
-                    pilaEjecucion[i].pilaPintado.Add(Ntext);
-                }
-                break;
-            case 5:
-                //Pinatmos el fila = casilla // N y lo añadimos a la pila de ejecucion;
-                for (int i = 0; i < menu.piscinaTextos.Count; i++)
-                {
-                    menu.piscinaTextos[i].text = menu.piscinaTextosOriginal[i];
-                    menu.piscinaTextos[i].color = Color.white;
-                }
-                filaText.text = "fila = casilla // N";
-                filaText.color = Color.cyan;
-                if (backStep == false)
-                {
-                    pilaEjecucion[i].fases.Add(fase);
-                    pilaEjecucion[i].pilaPintado.Add(filaText);
-                }
-                break;
-            case 6:
-                //Pinatmos el col = casilla % N y lo añadimos a la pila de ejecucion;
-                for (int i = 0; i < menu.piscinaTextos.Count; i++)
-                {
-                    menu.piscinaTextos[i].text = menu.piscinaTextosOriginal[i];
-                    menu.piscinaTextos[i].color = Color.white;
-                }
-                colText.text = "col = casilla % N";
-                colText.color = Color.cyan;
-                if (backStep == false)
-                {
-                    pilaEjecucion[i].fases.Add(fase);
-                    pilaEjecucion[i].pilaPintado.Add(colText);
-                }
-                break;
-            case 7:
-                //Pinatmos el if sudoku[fila,col] != 0 y lo añadimos a la pila de ejecucion;
-                for (int i = 0; i < menu.piscinaTextos.Count; i++)
-                {
-                    menu.piscinaTextos[i].text = menu.piscinaTextosOriginal[i];
-                    menu.piscinaTextos[i].color = Color.white;
-                }
-                ifSudokuText.text = "if sudoku[fila, col] != 0:";
-                ifSudokuText.color = Color.cyan;
-                if (backStep == false)
-                {
-                    pilaEjecucion[i].fases.Add(fase);
-                    pilaEjecucion[i].pilaPintado.Add(ifSudokuText);
+                    camino = 1;
                 }
                 break;
             case 8:
-                //Pinatmos el if sudoku[fila,col] != 0 y lo añadimos a la pila de ejecucion;
-                for (int i = 0; i < menu.piscinaTextos.Count; i++)
-                {
-                    menu.piscinaTextos[i].text = menu.piscinaTextosOriginal[i];
-                    menu.piscinaTextos[i].color = Color.white;
-                }
+                //Segundo if de la ejecucion, aqui miramos si el numero del sudoku venia dado por el problema, en tal caso, no podemos modificarlo y por tanto se pasa a la llamada recursiva.
                 if (sudokuHistory.numeroBase)
                 {
-                    sudokuVARecursiveText.text = "[sudoku, esSol] = sudokuVA(sudoku, casilla + 1)";
-                    sudokuVARecursiveText.color = Color.cyan;
-                    if (backStep == false)
-                    {
-                        pilaEjecucion[i].fases.Add(fase);
-                        pilaEjecucion[i].pilaPintado.Add(sudokuVARecursiveText);
-                    }
+                    camino = 0;
                 }
                 else
                 {
-                    elseSudokuText.text = "else:";
-                    elseSudokuText.color = Color.cyan;
-                    if (backStep == false)
-                    {
-                        pilaEjecucion[i].fases.Add(fase);
-                        pilaEjecucion[i].pilaPintado.Add(elseSudokuText);
-                    }
-                }
-                break;
-            case 9:
-                //Pinatmos el if sudoku[fila,col] != 0 y lo añadimos a la pila de ejecucion;
-                for (int i = 0; i < menu.piscinaTextos.Count; i++)
-                {
-                    menu.piscinaTextos[i].text = menu.piscinaTextosOriginal[i];
-                    menu.piscinaTextos[i].color = Color.white;
-                }
-                num1Text.text = "num = 1";
-                num1Text.color = Color.cyan;
-                if (backStep == false)
-                {
-                    pilaEjecucion[i].fases.Add(fase);
-                    pilaEjecucion[i].pilaPintado.Add(num1Text);
+                    printInitialSudoku(sudokuHistory, sudokuAnterior);
+                    camino = 1;
                 }
                 break;
             case 10:
-                //Pinatmos el if sudoku[fila,col] != 0 y lo añadimos a la pila de ejecucion;
                 printSudokuFirstStep(sudokuHistory);
                 numActualText.text = "Num actual: "+ sudokuHistory.num;
-                for (int i = 0; i < menu.piscinaTextos.Count; i++)
-                {
-                    menu.piscinaTextos[i].text = menu.piscinaTextosOriginal[i];
-                    menu.piscinaTextos[i].color = Color.white;
-                }
-                whileNotEsSolText.text = "while not esSol and num <= N:";
-                whileNotEsSolText.color = Color.cyan;
-                if (backStep == false)
-                {
-                    pilaEjecucion[i].fases.Add(fase);
-                    pilaEjecucion[i].pilaPintado.Add(whileNotEsSolText);
-                }
                 break;
             case 11:
-                //Pinatmos el if sudoku[fila,col] != 0 y lo añadimos a la pila de ejecucion;
-                for (int i = 0; i < menu.piscinaTextos.Count; i++)
-                {
-                    menu.piscinaTextos[i].text = menu.piscinaTextosOriginal[i];
-                    menu.piscinaTextos[i].color = Color.white;
-                }
+                //Desactivamos el esFactible para que no sea visible si es un paso atras.
                 if (backStep)
                 {
                     esFactibleFunction.gameObject.SetActive(false);
                 }
-                ifEsFactibleText.text = "if esFactible(sudoku, fila, col, num):";
-                ifEsFactibleText.color = Color.cyan;
-                if (backStep == false)
-                {
-                    pilaEjecucion[i].fases.Add(fase);
-                    pilaEjecucion[i].pilaPintado.Add(ifEsFactibleText);
-                }
                 break;
             case 12:
-                //Pinatmos el if sudoku[fila,col] != 0 y lo añadimos a la pila de ejecucion;
-                for (int i = 0; i < menu.piscinaTextos.Count; i++)
-                {
-                    menu.piscinaTextos[i].text = menu.piscinaTextosOriginal[i];
-                    menu.piscinaTextos[i].color = Color.white;
-                }
-                if(!backStep)
+                //Activamos el esFactible para que no sea visible si no es un paso atras.
+                if (!backStep)
                 {
                     esFactibleFunction.gameObject.SetActive(true);
                 }
-                esFactibleFunctionText.text = "def EsFactible(tab, f, c):";
-                esFactibleFunctionText.color = Color.cyan;
-                if (backStep == false)
-                {
-                    pilaEjecucion[i].fases.Add(fase);
-                    pilaEjecucion[i].pilaPintado.Add(esFactibleFunctionText);
-                }
                 break;
             case 13:
-                //Pinatmos el if sudoku[fila,col] != 0 y lo añadimos a la pila de ejecucion;
+                //Coloreamos la fila actual de nuestro sudoku.
                 printSudokuFilOK(sudokuHistory);
-                for (int i = 0; i < menu.piscinaTextos.Count; i++)
-                {
-                    menu.piscinaTextos[i].text = menu.piscinaTextosOriginal[i];
-                    menu.piscinaTextos[i].color = Color.white;
-                }
-                filaOKText.text = "filaOk = num not in sudoku[f, :]";
-                if (sudokuHistory.filOk)
-                {
-                    filaOKText.color = Color.green;
-                }
-                else
-                {
-                    filaOKText.color = Color.red;
-                }
-                if (backStep == false)
-                {
-                    pilaEjecucion[i].fases.Add(fase);
-                    pilaEjecucion[i].pilaPintado.Add(filaOKText);
-                }
                 break;
             case 14:
-                //Pinatmos el if sudoku[fila,col] != 0 y lo añadimos a la pila de ejecucion;
+                //Coloreamos la columna actual de nuestro sudoku.
                 printSudokuColOK(sudokuHistory);
-                for (int i = 0; i < menu.piscinaTextos.Count; i++)
-                {
-                    menu.piscinaTextos[i].text = menu.piscinaTextosOriginal[i];
-                    menu.piscinaTextos[i].color = Color.white;
-                }
-                colOkText.text = "colOk = num not in sudoku[:, c]";
-                if (sudokuHistory.colOk)
-                {
-                    colOkText.color = Color.green;
-                }
-                else
-                {
-                    colOkText.color = Color.red;
-                }
-                if (backStep == false)
-                {
-                    pilaEjecucion[i].fases.Add(fase);
-                    pilaEjecucion[i].pilaPintado.Add(colOkText);
-                }
                 break;
             case 15:
-                //Pinatmos el if sudoku[fila,col] != 0 y lo añadimos a la pila de ejecucion;
                 printSudokuFirstStep(sudokuHistory);
-                for (int i = 0; i < menu.piscinaTextos.Count; i++)
-                {
-                    menu.piscinaTextos[i].text = menu.piscinaTextosOriginal[i];
-                    menu.piscinaTextos[i].color = Color.white;
-                }
-                filaIniText.text = "filaIni = "+valorTamaño+" * (f // "+ valorTamaño+")";
-                filaIniText.color = Color.cyan;
-                if (backStep == false)
-                {
-                    pilaEjecucion[i].fases.Add(fase);
-                    pilaEjecucion[i].pilaPintado.Add(filaIniText);
-                }
-                break;
-            case 16:
-                //Pinatmos el if sudoku[fila,col] != 0 y lo añadimos a la pila de ejecucion;
-                for (int i = 0; i < menu.piscinaTextos.Count; i++)
-                {
-                    menu.piscinaTextos[i].text = menu.piscinaTextosOriginal[i];
-                    menu.piscinaTextos[i].color = Color.white;
-                }
-                filaFinText.text = "filaFin = filaIni + " + valorTamaño + "";
-                filaFinText.color = Color.cyan;
-                if (backStep == false)
-                {
-                    pilaEjecucion[i].fases.Add(fase);
-                    pilaEjecucion[i].pilaPintado.Add(filaFinText);
-                }
-                break;
-            case 17:
-                //Pinatmos el if sudoku[fila,col] != 0 y lo añadimos a la pila de ejecucion;
-                for (int i = 0; i < menu.piscinaTextos.Count; i++)
-                {
-                    menu.piscinaTextos[i].text = menu.piscinaTextosOriginal[i];
-                    menu.piscinaTextos[i].color = Color.white;
-                }
-                colIniText.text = "colIni = " + valorTamaño + " * (c // " + valorTamaño + ")";
-                colIniText.color = Color.cyan;
-                if (backStep == false)
-                {
-                    pilaEjecucion[i].fases.Add(fase);
-                    pilaEjecucion[i].pilaPintado.Add(colIniText);
-                }
-                break;
-            case 18:
-                //Pinatmos el if sudoku[fila,col] != 0 y lo añadimos a la pila de ejecucion;
-                for (int i = 0; i < menu.piscinaTextos.Count; i++)
-                {
-                    menu.piscinaTextos[i].text = menu.piscinaTextosOriginal[i];
-                    menu.piscinaTextos[i].color = Color.white;
-                }
-                colFinText.text = "colFin = colIni + " + valorTamaño;
-                colFinText.color = Color.cyan;
-                if (backStep == false)
-                {
-                    pilaEjecucion[i].fases.Add(fase);
-                    pilaEjecucion[i].pilaPintado.Add(colFinText);
-                }
                 break;
             case 19:
+                //Coloreamos el cuadrado de nuestro sudoku.
                 printSudokuCuadroOK(sudokuHistory);
-                //Pinatmos el if sudoku[fila,col] != 0 y lo añadimos a la pila de ejecucion;
-                for (int i = 0; i < menu.piscinaTextos.Count; i++)
-                {
-                    menu.piscinaTextos[i].text = menu.piscinaTextosOriginal[i];
-                    menu.piscinaTextos[i].color = Color.white;
-                }
-                cuadroOkText.text = "cuadroOk = num not in sudoku[filaIni:filaFin, colIni:colFin]";
-                if (sudokuHistory.cuadroOk)
-                {
-                    cuadroOkText.color = Color.green;
-                }
-                else
-                {
-                    cuadroOkText.color = Color.red;
-                }
-                if (backStep == false)
-                {
-                    pilaEjecucion[i].fases.Add(fase);
-                    pilaEjecucion[i].pilaPintado.Add(cuadroOkText);
-                }
                 break;
             case 20:
-                //Pinatmos el if sudoku[fila,col] != 0 y lo añadimos a la pila de ejecucion;
                 printSudokuFirstStep(sudokuHistory);
-                for (int i = 0; i < menu.piscinaTextos.Count; i++)
-                {
-                    menu.piscinaTextos[i].text = menu.piscinaTextosOriginal[i];
-                    menu.piscinaTextos[i].color = Color.white;
-                }
                 if (backStep)
                 {
                     esFactibleFunction.gameObject.SetActive(true);
                 }
-                returnEsFactibleText.text = "return filaOk and colOk and cuadroOk";
-                returnEsFactibleText.color = Color.cyan;
-                if (backStep == false)
-                {
-                    pilaEjecucion[i].fases.Add(fase);
-                    pilaEjecucion[i].pilaPintado.Add(returnEsFactibleText);
-                }
                 break;
             case 21:
-                //Pinatmos el if sudoku[fila,col] != 0 y lo añadimos a la pila de ejecucion;
-                for (int i = 0; i < menu.piscinaTextos.Count; i++)
-                {
-                    menu.piscinaTextos[i].text = menu.piscinaTextosOriginal[i];
-                    menu.piscinaTextos[i].color = Color.white;
-                }
                 if (!backStep)
                 {
                     esFactibleFunction.gameObject.SetActive(false);
                 }
+                //Tercer if de la ejecucion si es factible dicho movimiento, entonces pasaremos a la llamada recursiva, sino continuaremos con la ejecucion normal
                 if (sudokuHistory.colOk && sudokuHistory.filOk && sudokuHistory.cuadroOk)
                 {
-                    sudokuNumText.text = "sudoku[fila, col] = num";
-                    sudokuNumText.color = Color.cyan;
-                    if (backStep == false)
-                    {
-                        pilaEjecucion[i].fases.Add(fase);
-                        pilaEjecucion[i].pilaPintado.Add(sudokuNumText);
-                    }
+                    camino = 0;
                 }
                 else {
-                    num1v2Text.text = "num += 1";
-                    num1v2Text.color = Color.cyan;
-                    if (backStep == false)
-                    {
-                        pilaEjecucion[i].fases.Add(fase);
-                        pilaEjecucion[i].pilaPintado.Add(num1v2Text);
-                    }
-                }
-                break;
-            case 22:
-                //Pinatmos el if sudoku[fila,col] != 0 y lo añadimos a la pila de ejecucion;
-                for (int i = 0; i < menu.piscinaTextos.Count; i++)
-                {
-                    menu.piscinaTextos[i].text = menu.piscinaTextosOriginal[i];
-                    menu.piscinaTextos[i].color = Color.white;
-                }
-                sudokuVARecursive2Text.text = "[sudoku, esSol] = sudokuVA(sudoku, casilla + 1)";
-                sudokuVARecursive2Text.color = Color.cyan;
-                if (backStep == false)
-                {
-                    pilaEjecucion[i].fases.Add(fase);
-                    pilaEjecucion[i].pilaPintado.Add(sudokuVARecursive2Text);
+                    camino = 1;
                 }
                 break;
         }
-
+        
+        menu.pila(fase, camino, i, backStep, textosSinPintar, sudokuHistory, problem);
     }
 
-    IEnumerator waitForDefSudoku(DataHistory sudoku,bool lastMove, int[,] sudokuAnterior)
+    //Este método pintará el siguiente estado del sudoku y esperara un numero de segundos.
+    IEnumerator waitForNextText(DataHistory sudoku, bool lastMove, int[,] sudokuAnterior)
     {
-        yield return new WaitForSeconds(speedNextMove.value);
-        fase = 0;
         faseDePintado(sudoku, fase, lastMove, sudokuAnterior);
-        StartCoroutine(waitForIfCasilla(sudoku,lastMove));
-    }
-
-    IEnumerator waitForIfCasilla(DataHistory sudoku, bool lastMove)
-    {
         yield return new WaitForSeconds(speedNextMove.value);
-        fase = 1;
-        faseDePintado(sudoku, fase, lastMove);
-        StartCoroutine(waitForElseCasilla(sudoku,lastMove));
+        var results = menu.waitForNextText(lastMove, fase, nextText, nextStep, sudoku, problem);
+        nextStep = results.Item1;
+        nextText = results.Item2;
+        fase = results.Item3;
     }
 
-    IEnumerator waitForElseCasilla(DataHistory sudoku, bool lastMove)
-    {
-        yield return new WaitForSeconds(speedNextMove.value);
-        fase = 2;
-        faseDePintado(sudoku, fase, lastMove);
-        StartCoroutine(waitForEsSolFalse(sudoku, lastMove));
-    }
-
-    IEnumerator waitForEsSolFalse(DataHistory sudoku, bool lastMove)
-    {
-        yield return new WaitForSeconds(speedNextMove.value);
-        fase = 3;
-        faseDePintado(sudoku, fase, lastMove);
-        if (lastMove)
-        {
-            //Ejecucion terminada;
-        }
-        else
-        {
-            StartCoroutine(waitForN(sudoku, lastMove));
-        }
-    }
-
-    IEnumerator waitForN(DataHistory sudoku, bool lastMove)
-    {
-        yield return new WaitForSeconds(speedNextMove.value);
-        fase = 4;
-        faseDePintado(sudoku, fase, lastMove);
-        StartCoroutine(waitForFilaCasilla(sudoku, lastMove));
-    }
-
-    IEnumerator waitForFilaCasilla(DataHistory sudoku, bool lastMove)
-    {
-        yield return new WaitForSeconds(speedNextMove.value);
-        fase = 5;
-        faseDePintado(sudoku, fase, lastMove);
-        StartCoroutine(waitForColCasilla(sudoku, lastMove));
-    }
-
-    IEnumerator waitForColCasilla(DataHistory sudoku, bool lastMove)
-    {
-        yield return new WaitForSeconds(speedNextMove.value);
-        fase = 6;
-        faseDePintado(sudoku, fase, lastMove);
-        StartCoroutine(waitForIfSudoku(sudoku, lastMove));
-    }
-
-    IEnumerator waitForIfSudoku(DataHistory sudoku, bool lastMove)
-    {
-        yield return new WaitForSeconds(speedNextMove.value);
-        fase = 7;
-        faseDePintado(sudoku, fase, lastMove);
-        StartCoroutine(waitForElseSudoku(sudoku, lastMove));
-    }
-
-    IEnumerator waitForElseSudoku(DataHistory sudoku, bool lastMove)
-    {
-        yield return new WaitForSeconds(speedNextMove.value);
-        fase = 8;
-        faseDePintado(sudoku, fase, lastMove);
-        if (sudoku.numeroBase)
-        {
-            fase = 0;
-            nextStep = true;
-        }
-        else
-        {
-            StartCoroutine(waitForNum1(sudoku, lastMove));
-        }
-    }
-
-    IEnumerator waitForNum1(DataHistory sudoku, bool lastMove)
-    {
-        yield return new WaitForSeconds(speedNextMove.value);
-        fase = 9;
-        faseDePintado(sudoku, fase, lastMove);
-        StartCoroutine(waitForWhileNotEsSol(sudoku, lastMove));
-    }
-
-    IEnumerator waitForWhileNotEsSol(DataHistory sudoku, bool lastMove)
-    {
-        yield return new WaitForSeconds(speedNextMove.value);
-        fase = 10;
-        faseDePintado(sudoku, fase, lastMove);
-        StartCoroutine(waitForIfEsFactible(sudoku, lastMove));
-    }
-
-    IEnumerator waitForIfEsFactible(DataHistory sudoku, bool lastMove)
-    {
-        yield return new WaitForSeconds(speedNextMove.value);
-        fase = 11;
-        faseDePintado(sudoku, fase, lastMove);
-        StartCoroutine(waitForEsFactibleFunction(sudoku, lastMove));
-    }
-
-    IEnumerator waitForEsFactibleFunction(DataHistory sudoku, bool lastMove)
-    {
-        yield return new WaitForSeconds(speedNextMove.value);
-        fase = 12;
-        faseDePintado(sudoku, fase, lastMove);
-        StartCoroutine(waitForFilaOK(sudoku, lastMove));
-    }
-
-    IEnumerator waitForFilaOK(DataHistory sudoku, bool lastMove)
-    {
-        yield return new WaitForSeconds(speedNextMove.value);
-        fase = 13;
-        faseDePintado(sudoku, fase, lastMove);
-        StartCoroutine(waitForColOK(sudoku, lastMove));
-    }
-
-    IEnumerator waitForColOK(DataHistory sudoku, bool lastMove)
-    {
-        yield return new WaitForSeconds(speedNextMove.value);
-        fase = 14;
-        faseDePintado(sudoku, fase, lastMove);
-        StartCoroutine(waitForFilIni(sudoku, lastMove));
-    }
-
-    IEnumerator waitForFilIni(DataHistory sudoku, bool lastMove)
-    {
-        yield return new WaitForSeconds(speedNextMove.value);
-        fase = 15;
-        faseDePintado(sudoku, fase, lastMove);
-        StartCoroutine(waitForFilFin(sudoku, lastMove));
-    }
-
-    IEnumerator waitForFilFin(DataHistory sudoku, bool lastMove)
-    {
-        yield return new WaitForSeconds(speedNextMove.value);
-        fase = 16;
-        faseDePintado(sudoku, fase, lastMove);
-        StartCoroutine(waitForColIni(sudoku, lastMove));
-    }
-
-    IEnumerator waitForColIni(DataHistory sudoku, bool lastMove)
-    {
-        yield return new WaitForSeconds(speedNextMove.value);
-        fase = 17;
-        faseDePintado(sudoku, fase, lastMove);
-        StartCoroutine(waitForColFin(sudoku, lastMove));
-    }
-
-    IEnumerator waitForColFin(DataHistory sudoku, bool lastMove)
-    {
-        yield return new WaitForSeconds(speedNextMove.value);
-        fase = 18;
-        faseDePintado(sudoku, fase, lastMove);
-        StartCoroutine(waitForCuadroOk(sudoku, lastMove));
-    }
-
-    IEnumerator waitForCuadroOk(DataHistory sudoku, bool lastMove)
-    {
-        yield return new WaitForSeconds(speedNextMove.value);
-        fase = 19;
-        faseDePintado(sudoku, fase, lastMove);
-        StartCoroutine(waitForReturnEsFactible(sudoku, lastMove));
-    }
-
-    IEnumerator waitForReturnEsFactible(DataHistory sudoku, bool lastMove)
-    {
-        yield return new WaitForSeconds(speedNextMove.value);
-        fase = 20;
-        faseDePintado(sudoku, fase, lastMove);
-        StartCoroutine(waitForSudokuNum(sudoku, lastMove));
-    }
-    
-    IEnumerator waitForSudokuNum(DataHistory sudoku, bool lastMove)
-    {
-        yield return new WaitForSeconds(speedNextMove.value);
-        fase = 21;
-        faseDePintado(sudoku, fase, lastMove);
-        if (sudoku.colOk && sudoku.filOk && sudoku.cuadroOk)
-        {
-            StartCoroutine(waitForSudokuVARecursive2(sudoku, lastMove));
-        }
-        else
-        {
-            fase = 10;
-            nextStep = true;
-        }
-    }
-
-    IEnumerator waitForSudokuVARecursive2(DataHistory sudoku, bool lastMove)
-    {
-        yield return new WaitForSeconds(speedNextMove.value);
-        fase = 22;
-        faseDePintado(sudoku, fase, lastMove);
-        fase = 0;
-        nextStep = true;
-    }
-
-    public void inicializarTextos(){
-        textos.Add(sudokuVAText);
-        textos.Add(ifCasillaText);
-        textos.Add(esSolTrueText);
-        textos.Add(elseCasillaText);
-        textos.Add(esSolFalseText);
-        textos.Add(Ntext);
-        textos.Add(filaText);
-        textos.Add(colText);
-        textos.Add(ifSudokuText);
-        textos.Add(sudokuVARecursiveText);
-        textos.Add(elseSudokuText);
-        textos.Add(num1Text);
-        textos.Add(whileNotEsSolText);
-        textos.Add(ifEsFactibleText);
-        textos.Add(sudokuNumText);
-        textos.Add(sudokuVARecursive2Text);
-        textos.Add(ifNotEsSolText);
-        textos.Add(sudoku0Text);
-        textos.Add(num1v2Text);
-        textos.Add(returnSudokuText);
-        textos.Add(esFactibleFunctionText);
-        textos.Add(filaOKText);
-        textos.Add(colOkText);
-        textos.Add(filaIniText);
-        textos.Add(filaFinText);
-        textos.Add(colIniText);
-        textos.Add(colFinText);
-        textos.Add(cuadroOkText);
-        textos.Add(returnEsFactibleText);
-        menu.addTextos(textos);
-    }
-
-    public void printInitialSudoku(DataHistory sudokuActual, int[,] sudokuAnterior)
+    //Este metodo muestra el estado inicial del sudoku en cada ejecucion.
+    public void printInitialSudoku(DataHistory sudokuActual, int[,] sudokuAnterior,bool firstTime=false)
     {
         sudokuText.text = "";
         for(int i = 0; i < tamaño; i++)
@@ -921,38 +300,53 @@ public class BacktrackingSudoku : MonoBehaviour
             sudokuText.text += "[";
             for (int j = 0; j < tamaño; j++)
             {
+                string color;
+                Color color2;
+                if (firstTime)
+                {
+                    color = "white";
+                    color2 = Color.black;
+                }
+                else
+                {
+                    color = "cyan";
+                    color2 = Color.cyan;
+                }
                 piezasTablero[i, j].transform.GetChild(0).gameObject.GetComponent<TextMeshProUGUI>().text = sudokuAnterior[i, j] + "";
                 piezasTablero[i, j].transform.GetChild(0).gameObject.GetComponent<TextMeshProUGUI>().color = Color.black;
                 if (sudokuActual.fil == i && sudokuActual.col == j)
                 {
-                    piezasTablero[i, j].transform.GetChild(0).gameObject.GetComponent<TextMeshProUGUI>().color = Color.cyan;
+                    //Pinta la parte visual
+                    piezasTablero[i, j].transform.GetChild(0).gameObject.GetComponent<TextMeshProUGUI>().color = color2;
+                    //Pinta la matriz
                     if (tamaño == 9)
                     {
                         if (j != 8)
                         {
-                            sudokuText.text += "<color=cyan>" + sudokuAnterior[i, j] + "</color>, ";
+                            sudokuText.text += "<color=" + color + ">" + sudokuAnterior[i, j] + "</color>, ";
                         }
                         else
                         {
-                            sudokuText.text += "<color=cyan>" + sudokuAnterior[i, j] + "</color>";
+                            sudokuText.text += "<color=" + color + ">" + sudokuAnterior[i, j] + "</color>";
                         }
                     }
                     else
                     {
                         if (j != 3)
                         {
-                            sudokuText.text += "<color=cyan>" + sudokuAnterior[i, j] + "</color>, ";
+                            sudokuText.text += "<color=" + color + ">" + sudokuAnterior[i, j] + "</color>, ";
                         }
                         else
                         {
-                            sudokuText.text += "<color=cyan>" + sudokuAnterior[i, j] + "</color>";
+                            sudokuText.text += "<color=" + color + ">" + sudokuAnterior[i, j] + "</color>";
                         }
-
                     }
                 }
                 else
                 {
+                    //Pinta la parte visual
                     piezasTablero[i, j].GetComponent<Image>().color = Color.white;
+                    //Pinta la matriz
                     if (tamaño == 9)
                     {
                         if (j != 8)
@@ -981,6 +375,7 @@ public class BacktrackingSudoku : MonoBehaviour
         }
     }
 
+    //Pintamos el primer paso del sudoku en el que estamos es decir el numero con el que vamos a probar
     public void printSudokuFirstStep(DataHistory sudokuHistory)
     {
         sudokuText.text = "";
@@ -993,7 +388,9 @@ public class BacktrackingSudoku : MonoBehaviour
                 piezasTablero[i, j].transform.GetChild(0).gameObject.GetComponent<TextMeshProUGUI>().color = Color.black;
                 if (sudokuHistory.fil == i && sudokuHistory.col == j)
                 {
+                    //Pinta la parte visual
                     piezasTablero[i, j].transform.GetChild(0).gameObject.GetComponent<TextMeshProUGUI>().color=Color.cyan;
+                    //Pinta la matriz
                     if (tamaño == 9)
                     {
                         if (j != 8)
@@ -1019,7 +416,9 @@ public class BacktrackingSudoku : MonoBehaviour
                 }
                 else
                 {
+                    //Pinta la parte visual
                     piezasTablero[i, j].GetComponent<Image>().color = Color.white;
+                    //Pinta la matriz
                     if (tamaño == 9)
                     {
                         if (j != 8)
@@ -1048,6 +447,7 @@ public class BacktrackingSudoku : MonoBehaviour
         }
     }
 
+    //Pinta la fila actual en la que nos encontramos, bien de color verde si es factible poner el numero en dicha fila o bien de color rojo si no lo es.
     public void printSudokuFilOK(DataHistory sudokuHistory)
     {
         sudokuText.text = "";
@@ -1060,7 +460,9 @@ public class BacktrackingSudoku : MonoBehaviour
                 piezasTablero[i, j].transform.GetChild(0).gameObject.GetComponent<TextMeshProUGUI>().color = Color.black;
                 if (sudokuHistory.fil == i && sudokuHistory.col == j)
                 {
+                    //Pinta la parte visual
                     piezasTablero[i, j].transform.GetChild(0).gameObject.GetComponent<TextMeshProUGUI>().color = Color.cyan;
+                    //Pinta la matriz
                     if (tamaño == 9)
                     {
                         if (j != 8)
@@ -1090,7 +492,9 @@ public class BacktrackingSudoku : MonoBehaviour
                     {
                         if (sudokuHistory.filOk)
                         {
+                            //Pinta la parte visual
                             piezasTablero[i, j].GetComponent<Image>().color = Color.green;
+                            //Pinta la matriz
                             if (tamaño == 9)
                             {
                                 if (j != 8)
@@ -1116,7 +520,9 @@ public class BacktrackingSudoku : MonoBehaviour
                         }
                         else
                         {
+                            //Pinta la parte visual
                             piezasTablero[i, j].GetComponent<Image>().color = Color.red;
+                            //Pinta la matriz
                             if (tamaño == 9)
                             {
                                 if (j != 8)
@@ -1144,7 +550,9 @@ public class BacktrackingSudoku : MonoBehaviour
                     }
                     else
                     {
+                        //Pinta la parte visual
                         piezasTablero[i, j].GetComponent<Image>().color = Color.white;
+                        //Pinta la matriz
                         if (tamaño == 9)
                         {
                             if (j != 8)
@@ -1175,6 +583,7 @@ public class BacktrackingSudoku : MonoBehaviour
         }
     }
 
+    //Pinta la columna actual en la que nos encontramos, bien de color verde si es factible poner el numero en dicha columna o bien de color rojo si no lo es.
     public void printSudokuColOK(DataHistory sudokuHistory)
     {
         sudokuText.text = "";
@@ -1187,7 +596,9 @@ public class BacktrackingSudoku : MonoBehaviour
                 piezasTablero[i, j].transform.GetChild(0).gameObject.GetComponent<TextMeshProUGUI>().color = Color.black;
                 if (sudokuHistory.fil == i && sudokuHistory.col == j)
                 {
+                    //Pinta la parte visual
                     piezasTablero[i, j].transform.GetChild(0).gameObject.GetComponent<TextMeshProUGUI>().color = Color.cyan;
+                    //Pinta la matriz
                     if (tamaño == 9)
                     {
                         if (j != 8)
@@ -1217,7 +628,9 @@ public class BacktrackingSudoku : MonoBehaviour
                     {
                         if (sudokuHistory.colOk)
                         {
+                            //Pinta la parte visual
                             piezasTablero[i, j].GetComponent<Image>().color = Color.green;
+                            //Pinta la matriz
                             if (tamaño == 9)
                             {
                                 if (j != 8)
@@ -1243,7 +656,9 @@ public class BacktrackingSudoku : MonoBehaviour
                         }
                         else
                         {
+                            //Pinta la parte visual
                             piezasTablero[i, j].GetComponent<Image>().color = Color.red;
+                            //Pinta la matriz
                             if (tamaño == 9)
                             {
                                 if (j != 8)
@@ -1271,7 +686,9 @@ public class BacktrackingSudoku : MonoBehaviour
                     }
                     else
                     {
+                        //Pinta la parte visual
                         piezasTablero[i, j].GetComponent<Image>().color = Color.white;
+                        //Pinta la matriz
                         if (tamaño == 9)
                         {
                             if (j != 8)
@@ -1301,6 +718,7 @@ public class BacktrackingSudoku : MonoBehaviour
         }
     }
 
+    //Pinta el cuadrado actual en el que nos encontramos, bien de color verde si es factible poner el numero en dicho cuadrado o bien de color rojo si no lo es.
     public void printSudokuCuadroOK(DataHistory sudokuHistory)
     {
         int filaIni = 0;
@@ -1333,7 +751,9 @@ public class BacktrackingSudoku : MonoBehaviour
                 piezasTablero[i, j].transform.GetChild(0).gameObject.GetComponent<TextMeshProUGUI>().color = Color.black;
                 if (sudokuHistory.fil == i && sudokuHistory.col == j)
                 {
+                    //Pinta la parte visual
                     piezasTablero[i, j].transform.GetChild(0).gameObject.GetComponent<TextMeshProUGUI>().color = Color.cyan;
+                    //Pinta la matriz
                     if (tamaño == 9)
                     {
                         if (j != 8)
@@ -1363,7 +783,9 @@ public class BacktrackingSudoku : MonoBehaviour
                     {
                         if (sudokuHistory.cuadroOk)
                         {
+                            //Pinta la parte visual
                             piezasTablero[i, j].GetComponent<Image>().color = Color.green;
+                            //Pinta la matriz
                             if (tamaño == 9)
                             {
                                 if (j != 8)
@@ -1389,7 +811,9 @@ public class BacktrackingSudoku : MonoBehaviour
                         }
                         else
                         {
+                            //Pinta la parte visual
                             piezasTablero[i, j].GetComponent<Image>().color = Color.red;
+                            //Pinta la matriz
                             if (tamaño == 9)
                             {
                                 if (j != 8)
@@ -1417,7 +841,9 @@ public class BacktrackingSudoku : MonoBehaviour
                     }
                     else
                     {
+                        //Pinta la parte visual
                         piezasTablero[i, j].GetComponent<Image>().color = Color.white;
+                        //Pinta la matriz
                         if (tamaño == 9)
                         {
                             if (j != 8)
@@ -1447,6 +873,7 @@ public class BacktrackingSudoku : MonoBehaviour
         }
     }
 
+    //Metodo esfactible para resolver el problema
     public Tuple<bool, bool, bool> esFactible(int[,] sudoku ,int f ,int c ,int num) {
         //bool filaOk = num not in sudoku[f,:]
         bool filaOk = true;
@@ -1508,6 +935,7 @@ public class BacktrackingSudoku : MonoBehaviour
         return Tuple.Create(filaOk, colOk, cuadroOk);
     }
 
+    //Codigo resolverSudoku
     public Tuple<int[,], bool> resolverSudokuVA(int[,]sudoku, int[,]sudokuVisualizer, int casilla) {
 
         bool esSol = false;
@@ -1587,7 +1015,199 @@ public class BacktrackingSudoku : MonoBehaviour
         return Tuple.Create(sudoku, esSol);
    }
 
-    public int[,] inicializar() {
+    //Inicializa y guarda referencia a todos los textos del codigo, tanto los pintados como los que no lo están.
+    public void inicializarTextos()
+    {
+        List<TextMeshProUGUI> aux1 = new List<TextMeshProUGUI>();
+        aux1.Add(sudokuVAText);
+        aux1.Add(sudokuVAText);
+        textos.Add(aux1);
+        aux1 = new List<TextMeshProUGUI>();
+        aux1.Add(ifCasillaText);
+        aux1.Add(ifCasillaText);
+        textos.Add(aux1);
+        aux1 = new List<TextMeshProUGUI>();
+        aux1.Add(esSolTrueText);
+        aux1.Add(elseCasillaText);
+        textos.Add(aux1);
+        aux1 = new List<TextMeshProUGUI>();
+        aux1.Add(returnSudokuText);
+        aux1.Add(esSolFalseText);
+        textos.Add(aux1);
+        aux1 = new List<TextMeshProUGUI>();
+        aux1.Add(Ntext);
+        aux1.Add(Ntext);
+        textos.Add(aux1);
+        aux1 = new List<TextMeshProUGUI>();
+        aux1.Add(filaText);
+        aux1.Add(filaText);
+        textos.Add(aux1);
+        aux1 = new List<TextMeshProUGUI>();
+        aux1.Add(colText);
+        aux1.Add(colText);
+        textos.Add(aux1);
+        aux1 = new List<TextMeshProUGUI>();
+        aux1.Add(ifSudokuText);
+        aux1.Add(ifSudokuText);
+        textos.Add(aux1);
+        aux1 = new List<TextMeshProUGUI>();
+        aux1.Add(sudokuVARecursiveText);
+        aux1.Add(elseSudokuText);
+        textos.Add(aux1);
+        aux1 = new List<TextMeshProUGUI>();
+        aux1.Add(num1Text);
+        aux1.Add(num1Text);
+        textos.Add(aux1);
+        aux1 = new List<TextMeshProUGUI>();
+        aux1.Add(whileNotEsSolText);
+        aux1.Add(whileNotEsSolText);
+        textos.Add(aux1);
+        aux1 = new List<TextMeshProUGUI>();
+        aux1.Add(ifEsFactibleText);
+        aux1.Add(ifEsFactibleText);
+        textos.Add(aux1);
+        aux1 = new List<TextMeshProUGUI>();
+        aux1.Add(esFactibleFunctionText);
+        aux1.Add(esFactibleFunctionText);
+        textos.Add(aux1);
+        aux1 = new List<TextMeshProUGUI>();
+        aux1.Add(filaOKText);
+        aux1.Add(filaOKText);
+        textos.Add(aux1);
+        aux1 = new List<TextMeshProUGUI>();
+        aux1.Add(colOkText);
+        aux1.Add(colOkText);
+        textos.Add(aux1);
+        aux1 = new List<TextMeshProUGUI>();
+        aux1.Add(filaIniText);
+        aux1.Add(filaIniText);
+        textos.Add(aux1);
+        aux1 = new List<TextMeshProUGUI>();
+        aux1.Add(filaFinText);
+        aux1.Add(filaFinText);
+        textos.Add(aux1);
+        aux1 = new List<TextMeshProUGUI>();
+        aux1.Add(colIniText);
+        aux1.Add(colIniText);
+        textos.Add(aux1);
+        aux1 = new List<TextMeshProUGUI>();
+        aux1.Add(colFinText);
+        aux1.Add(colFinText);
+        textos.Add(aux1);
+        aux1 = new List<TextMeshProUGUI>();
+        aux1.Add(cuadroOkText);
+        aux1.Add(cuadroOkText);
+        textos.Add(aux1);
+        aux1 = new List<TextMeshProUGUI>();
+        aux1.Add(returnEsFactibleText);
+        aux1.Add(returnEsFactibleText);
+        textos.Add(aux1);
+        aux1 = new List<TextMeshProUGUI>();
+        aux1.Add(sudokuNumText);
+        aux1.Add(num1v2Text);
+        textos.Add(aux1);
+        aux1 = new List<TextMeshProUGUI>();
+        aux1.Add(sudokuVARecursive2Text);
+        aux1.Add(sudokuVARecursive2Text);
+        textos.Add(aux1);
+
+        List<string> aux = new List<string>();
+        aux.Add("def sudokuVA(sudoku, casilla):");
+        aux.Add("def sudokuVA(sudoku, casilla):");
+        textosSinPintar.Add(aux);
+        aux = new List<string>();
+        aux.Add("if casilla >= np.size(sudoku):");
+        aux.Add("if casilla >= np.size(sudoku):");
+        textosSinPintar.Add(aux);
+        aux = new List<string>();
+        aux.Add("esSol = True");
+        aux.Add("else:");
+        textosSinPintar.Add(aux);
+        aux = new List<string>();
+        aux.Add("return sudoku, esSol");
+        aux.Add("esSol = False");
+        textosSinPintar.Add(aux);
+        aux = new List<string>();
+        aux.Add("N = np.size(sudoku, 0)");
+        aux.Add("N = np.size(sudoku, 0)");
+        textosSinPintar.Add(aux);
+        aux = new List<string>();
+        aux.Add("fila = casilla // N");
+        aux.Add("fila = casilla // N");
+        textosSinPintar.Add(aux);
+        aux = new List<string>();
+        aux.Add("col = casilla % N");
+        aux.Add("col = casilla % N");
+        textosSinPintar.Add(aux);
+        aux = new List<string>();
+        aux.Add("if sudoku[fila, col] != 0:");
+        aux.Add("if sudoku[fila, col] != 0:");
+        textosSinPintar.Add(aux);
+        aux = new List<string>();
+        aux.Add("[sudoku, esSol] = sudokuVA(sudoku, casilla + 1)");
+        aux.Add("else:");
+        textosSinPintar.Add(aux);
+        aux = new List<string>();
+        aux.Add("num = 1");
+        aux.Add("num = 1");
+        textosSinPintar.Add(aux);
+        aux = new List<string>();
+        aux.Add("while not esSol and num <= N:");
+        aux.Add("while not esSol and num <= N:");
+        textosSinPintar.Add(aux);
+        aux = new List<string>();
+        aux.Add("if esFactible(sudoku, fila, col, num):");
+        aux.Add("if esFactible(sudoku, fila, col, num):");
+        textosSinPintar.Add(aux);
+        aux = new List<string>();
+        aux.Add("def EsFactible(tab, f, c):");
+        aux.Add("def EsFactible(tab, f, c):");
+        textosSinPintar.Add(aux);
+        aux = new List<string>();
+        aux.Add("filaOk = num not in sudoku[f, :]");
+        aux.Add("filaOk = num not in sudoku[f, :]");
+        textosSinPintar.Add(aux);
+        aux = new List<string>();
+        aux.Add("colOk = num not in sudoku[:, c]");
+        aux.Add("colOk = num not in sudoku[:, c]");
+        textosSinPintar.Add(aux);
+        aux = new List<string>();
+        aux.Add("filaIni = " + valorTamaño + " * (f // " + valorTamaño + ")");
+        aux.Add("filaIni = " + valorTamaño + " * (f // " + valorTamaño + ")");
+        textosSinPintar.Add(aux);
+        aux = new List<string>();
+        aux.Add("filaFin = filaIni + " + valorTamaño + "");
+        aux.Add("filaFin = filaIni + " + valorTamaño + "");
+        textosSinPintar.Add(aux);
+        aux = new List<string>();
+        aux.Add("colIni = " + valorTamaño + " * (c // " + valorTamaño + ")");
+        aux.Add("colIni = " + valorTamaño + " * (c // " + valorTamaño + ")");
+        textosSinPintar.Add(aux);
+        aux = new List<string>();
+        aux.Add("colFin = colIni + " + valorTamaño);
+        aux.Add("colFin = colIni + " + valorTamaño);
+        textosSinPintar.Add(aux);
+        aux = new List<string>();
+        aux.Add("cuadroOk = num not in sudoku[filaIni:filaFin, colIni:colFin]");
+        aux.Add("cuadroOk = num not in sudoku[filaIni:filaFin, colIni:colFin]");
+        textosSinPintar.Add(aux);
+        aux = new List<string>();
+        aux.Add("return filaOk and colOk and cuadroOk");
+        aux.Add("return filaOk and colOk and cuadroOk");
+        textosSinPintar.Add(aux);
+        aux = new List<string>();
+        aux.Add("sudoku[fila, col] = num");
+        aux.Add("num += 1");
+        textosSinPintar.Add(aux);
+        aux = new List<string>();
+        aux.Add("[sudoku, esSol] = sudokuVA(sudoku, casilla + 1)");
+        aux.Add("[sudoku, esSol] = sudokuVA(sudoku, casilla + 1)");
+        textosSinPintar.Add(aux);
+
+        menu.addTextos(textos);
+    }
+
+    public int[,] inicializar9x9() {
         int[,] instancia = new int[9, 9];
         instancia[0, 1] = 6;
         instancia[0, 3] = 1;
@@ -1636,26 +1256,22 @@ public class BacktrackingSudoku : MonoBehaviour
         return instancia;
     }
 
+    //Llama la funcion play del codigo comnpartido
     public void playFunc()
     {
-        if (play && gameObject.active)
+        if (gameObject.active)
         {
-            playButton.sprite = Resources.Load<Sprite>("play");
-            play = false;
-            StopAllCoroutines();
-        }
-        else if (!play && this.gameObject.activeSelf)
-        {
-            playButton.sprite = Resources.Load<Sprite>("pause");
-            play = true;
-            backStep = false;
-            firstTime = false;
-            if (!nextStep)
+            if (play)
             {
-                recuperarEstadoCorutina = true;
+                StopAllCoroutines();
             }
+            var results = menu.playFunc(play, backStep, firstTime, nextStep, recuperarEstadoCorutina, playButton, nextText);
+            play = results.Item1;
+            backStep = results.Item2;
+            firstTime = results.Item3;
+            recuperarEstadoCorutina = results.Item4;
+            nextText = results.Item5;
         }
-
     }
 
     public void nextStepFunc()
@@ -1669,8 +1285,9 @@ public class BacktrackingSudoku : MonoBehaviour
                 i += 1;
                 List<TextMeshProUGUI> auxiliar = new List<TextMeshProUGUI>();
                 List<int> fasesAsociadas = new List<int>();
-                TextColor tableroEjecucion = new TextColor(fasesAsociadas, auxiliar);
-                pilaEjecucion.Add(tableroEjecucion);
+                BoardHistory tableroEjecucion = new BoardHistory(fasesAsociadas, auxiliar);
+                //Añade una nueva pila de ejecucion
+                menu.pilaEjecucion.Add(tableroEjecucion);
                 faseDePintado(sudokuHistory[i], fase, sudokuHistory.Count - 1 == i, sudokuHistory[i - 1].board);
             }
             else if (fase == 22)
@@ -1679,8 +1296,9 @@ public class BacktrackingSudoku : MonoBehaviour
                 i += 1;
                 List<TextMeshProUGUI> auxiliar = new List<TextMeshProUGUI>();
                 List<int> fasesAsociadas = new List<int>();
-                TextColor tableroEjecucion = new TextColor(fasesAsociadas, auxiliar);
-                pilaEjecucion.Add(tableroEjecucion);
+                BoardHistory tableroEjecucion = new BoardHistory(fasesAsociadas, auxiliar);
+                //Añade una nueva pila de ejecucion
+                menu.pilaEjecucion.Add(tableroEjecucion);
                 faseDePintado(sudokuHistory[i], fase, sudokuHistory.Count - 1 == i, sudokuHistory[i - 1].board);
             }
             else if (fase == 8 && sudokuHistory[i].numeroBase)
@@ -1689,8 +1307,9 @@ public class BacktrackingSudoku : MonoBehaviour
                 i += 1;
                 List<TextMeshProUGUI> auxiliar = new List<TextMeshProUGUI>();
                 List<int> fasesAsociadas = new List<int>();
-                TextColor tableroEjecucion = new TextColor(fasesAsociadas, auxiliar);
-                pilaEjecucion.Add(tableroEjecucion);
+                BoardHistory tableroEjecucion = new BoardHistory(fasesAsociadas, auxiliar);
+                //Añade una nueva pila de ejecucion
+                menu.pilaEjecucion.Add(tableroEjecucion);
                 faseDePintado(sudokuHistory[i], fase, sudokuHistory.Count - 1 == i, sudokuHistory[i - 1].board);
             }
             else if (fase == 3 && sudokuHistory.Count - 1 == i)
@@ -1707,7 +1326,7 @@ public class BacktrackingSudoku : MonoBehaviour
                     i += 1;
                     List<TextMeshProUGUI> auxiliar = new List<TextMeshProUGUI>();
                     List<int> fasesAsociadas = new List<int>();
-                    TextColor tableroEjecucion = new TextColor(fasesAsociadas, auxiliar);
+                    BoardHistory tableroEjecucion = new BoardHistory(fasesAsociadas, auxiliar);
                     faseDePintado(sudokuHistory[i], fase, sudokuHistory.Count - 1 == i, sudokuInicial);
                 }
                 else
@@ -1718,108 +1337,24 @@ public class BacktrackingSudoku : MonoBehaviour
         }
     }
 
+    //Llama la funcion backStepFunc del codigo comnpartido
     public void backStepFunc()
     {
-        if (!play && gameObject.active)
+        if (gameObject.active && !play)
         {
-            if (i >= 0)
+            var results = menu.backStepFunc(backStep, fase, i);
+            backStep = results.Item1;
+            fase = results.Item2;
+            i = results.Item3;
+            if (i != 0)
             {
-                backStep = true;
-                if (pilaEjecucion[i].pilaPintado.Count > 1)
-                {
-                    //Eliminamos el ultimo valor del ultimo objeto.
-                    int contador = pilaEjecucion[i].pilaPintado.Count;
-                    TextMeshProUGUI ultimoObjetoText = new TextMeshProUGUI();
-                    foreach (TextMeshProUGUI t in pilaEjecucion[i].pilaPintado)
-                    {
-                        ultimoObjetoText = t;
-                    }
-                    ultimoObjetoText.color = Color.white;
-                    pilaEjecucion[i].pilaPintado.Remove(ultimoObjetoText);
-
-                    int ultimoObjetoInt = 0;
-                    foreach (int t in pilaEjecucion[i].fases)
-                    {
-                        ultimoObjetoInt = t;
-                    }
-                    pilaEjecucion[i].fases.Remove(ultimoObjetoInt);
-
-                    int lastObject = 0;
-                    foreach (int t in pilaEjecucion[i].fases)
-                    {
-                        lastObject = t;
-                    }
-                    fase = lastObject;
-
-                    /*if (contador >= 2)
-                    {
-                        //Coloreamos el penultimo objeto.
-                        foreach (TextMeshProUGUI t in pilaEjecucion[i].pilaPintado)
-                        {
-                            ultimoObjetoText = t;
-                        }
-                        ultimoObjetoText.color = Color.cyan;
-                    }
-                    else if (i > 0)
-                    {
-                        //Coloreamos el ultimo objeto del tablero anterior.
-                        foreach (TextMeshProUGUI t in pilaEjecucion[i - 1].pilaPintado)
-                        {
-                            ultimoObjetoText = t;
-                        }
-                        ultimoObjetoText.color = Color.cyan;
-                    }
-                    */
-                }
-                else
-                {
-                    if (i > 0)
-                    {
-                        TextMeshProUGUI ultimoObjetoText = new TextMeshProUGUI();
-                        foreach (TextMeshProUGUI t in pilaEjecucion[i].pilaPintado)
-                        {
-                            ultimoObjetoText = t;
-                        }
-                        ultimoObjetoText.color = Color.white;
-                        pilaEjecucion[i].pilaPintado.Remove(ultimoObjetoText);
-
-                        int ultimoObjetoInt = 0;
-                        foreach (int t in pilaEjecucion[i].fases)
-                        {
-                            ultimoObjetoInt = t;
-                        }
-                        pilaEjecucion[i].fases.Remove(ultimoObjetoInt);
-
-                        i -= 1;
-
-                        int lastObject = 0;
-                        foreach (int t in pilaEjecucion[i].fases)
-                        {
-                            lastObject = t;
-                        }
-                        fase = lastObject;
-
-                        //No entiendo porque no me deja borrar objetos.
-                        /*List<TextMeshProUGUI> aux = new List<TextMeshProUGUI>();
-                        List<int> fasesAsociadas = new List<int>();
-                        TextColor lastObject = new TextColor(fasesAsociadas, aux);
-                        foreach (TextColor t in pilaEjecucion)
-                        {
-                            lastObject = t;
-                        }
-                        pilaEjecucion.Remove(lastObject);*/
-                    }
-                }
-                if (i != 0)
-                {
-                    faseDePintado(sudokuHistory[i], fase, sudokuHistory.Count - 1 == i, sudokuHistory[i - 1].board);
-                }
-                else
-                {
-                    faseDePintado(sudokuHistory[i], fase, sudokuHistory.Count - 1 == i, sudokuInicial);
-                }
-
+                faseDePintado(sudokuHistory[i], fase, sudokuHistory.Count - 1 == i, sudokuHistory[i - 1].board);
             }
+            else
+            {
+                faseDePintado(sudokuHistory[i], fase, sudokuHistory.Count - 1 == i, sudokuInicial);
+            }
+
         }
     }
 

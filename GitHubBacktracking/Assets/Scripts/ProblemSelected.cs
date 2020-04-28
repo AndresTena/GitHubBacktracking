@@ -1,13 +1,16 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class ProblemSelected : MonoBehaviour
 {
+    //Declaración de variables
     public GameObject NReinas, Sudoku, Laberinto;
-    // Start is called before the first frame update
+
     void Start()
     {
+        //Dependiendo del problema elegido, en la escena se activará ese y los demás se desactivarán.
         if ("NReinas" == GameState.gameState.problem) {
 
             NReinas.gameObject.SetActive(true);
@@ -30,4 +33,5 @@ public class ProblemSelected : MonoBehaviour
 
     }
     
+
 }

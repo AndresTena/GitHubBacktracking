@@ -4,6 +4,7 @@ using UnityEngine;
 
 public class GameState : MonoBehaviour
 {
+    //Declaración de variables.
     public static GameState gameState;
     public int tamaño = 4;
     public string problem = "";

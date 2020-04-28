@@ -9,11 +9,12 @@ using TMPro;
 
 public class BacktrackingAdaptacion : MonoBehaviour
 {
+    //Declaración de variables públicas.
     public int tamaño = 4;
     public Text vectorSolucionText;
     public Image playButton;
     public TextMeshProUGUI esFactibleText, colText, diag1Text, diag2Text, defNReinasText, ifKText, esSolTrueText, elseText, esSolFalseText, col0Text, whileNotEsSolText, IfEsFactibleText, defEsFactibleFunc, defEsFactibleText, returnEsFactibleText, tab1Text, NReinasRecursiveText, col1Text, returnDefReinasText;
-    public TextMeshProUGUI filActualText, colActualText, esSolActualText, numActualText;
+    public TextMeshProUGUI filActualText, colActualText, esSolActualText, numActualText, progresoText;
     public Text tablero;
     public Scrollbar speedNextMove;
     public GameObject targetPosition;
@@ -21,50 +22,69 @@ public class BacktrackingAdaptacion : MonoBehaviour
     public List<GameObject> llamadasRecursivas;
     public List<TextMeshProUGUI> pieLlamada;
     public List<GameObject> posicionesIniciales;
-
-
- 
     public List<DataHistory> boardHistory;
     public GameObject[,] piezasTablero;
     public GameObject[] reinas;
-    public bool boardSolved = false;
-    public bool firstTime = true;
-    public bool play = true;
-    public bool nextStep = true;
-    public bool backStep = true;
-    public bool nextN = false;
-    public bool recuperarEstadoCorutina = false;
-    public bool finished = false;
-    public bool moverReina = false;
-    public DataHistory data;
-    public int i = -1;
-    public int filaActual = 0;
-    public int colActual = 0;
-    public int fase = 0;
-    public int filAnt;
-    public float movementSpeed = 50f;
-    public Vector3 towardsTarget;
-    public float posicionXInicial;
-    public List<int> vectorSolucion;
-    public List<TextColor> pilaEjecucion;
-    public List<TextMeshProUGUI> piscinaTextos;
-    public List<string> piscinaTextosOriginal;
+    public Slider slider;
 
-    // Start is called before the first frame update
+
+    //Declaración de variables privadas.
+    List<List<TextMeshProUGUI>> textos;
+    List<List<string>> textosSinPintar;
+    bool boardSolved = false;
+    bool firstTime = true;
+    bool play = false;
+    bool nextStep = true;
+    bool nextText = false;
+    bool nextStep2 = false;
+    bool backStep = false;
+    bool nextN = false;
+    bool recuperarEstadoCorutina = false;
+    bool finished = false;
+    bool moverReina = false;
+    DataHistory data;
+    SharedCode menu;
+    int problem = 1;
+    int i = -1;
+    int filaActual = 0;
+    int colActual = 0;
+    int fase = 0;
+    int filAnt;
+    float movementSpeed = 50f;
+    Vector3 towardsTarget;
+    float posicionXInicial;
+    List<int> vectorSolucion;
+    List<TextMeshProUGUI> piscinaTextos;
+    List<string> piscinaTextosOriginal;
+    
     void Start()
     {
+        //Desactivamos el texto de num actual, ya que en este problema no se utiliza.
         numActualText.gameObject.SetActive(false);
+        //Establecemos el tamaño elegido en el menu.
         tamaño = GameState.gameState.tamaño;
-        pilaEjecucion = new List<TextColor>();
+        //Inicializamos variables.
         piscinaTextos = new List<TextMeshProUGUI>();
         piscinaTextosOriginal = new List<string>();
-        addTextos(piscinaTextos);
+        boardHistory = new List<DataHistory>();
+        textos = new List<List<TextMeshProUGUI>>();
+        textosSinPintar = new List<List<string>>();
+        menu = new SharedCode();
+        vectorSolucion = new List<int>();
+        inicializarTextos();
         //Inicializacion de las piezas del tablero
         piezasTablero = new GameObject[tamaño, tamaño];
+        int[,] board = new int[tamaño, tamaño];
+        int[,] boardVisualizer = new int[tamaño, tamaño];
+        //Resolvemos el problema y guardamos cada uno de los tableros en una lista.
+        NReinas(board, 0, boardVisualizer, vectorSolucion);
+
+        //Guardamos la referencia visual de cada una de las piezas del tablero en piezasTablero, para poder acceder a ellas.
         int indiceX = 0;
         int indiceY = 0;
         int i = 0;
-        for (i = 0; i < tamaño*tamaño; i++) {
+        for (i = 0; i < tamaño * tamaño; i++)
+        {
 
             if (indiceY >= tamaño)
             {
@@ -77,900 +97,213 @@ public class BacktrackingAdaptacion : MonoBehaviour
         }
         //Inicializacion de las reinas del tablero.
         reinas = new GameObject[tamaño];
-        for (int j=0; j < tamaño; j++)
+        for (int j = 0; j < tamaño; j++)
         {
             reinas[j] = objetoTablero[tamaño - 4].transform.GetChild(i).gameObject;
             i += 1;
         }
 
         posicionXInicial = posicionesIniciales[tamaño - 4].gameObject.transform.position.x;
-        //Activamos el tablero
+        //Activamos el tablero correspondiente
         objetoTablero[tamaño - 4].gameObject.SetActive(true);
-        int[,] boardVisualizer = new int[tamaño, tamaño];
+
         printInitialBoard();
     }
-
-    // Update is called once per frame
+    
     void Update()
     {
-        if (boardSolved)
+        slider.value = (float)i / (float)(boardHistory.Count - 1);
+        progresoText.text = "Paso "+ (i + 1) +" / "+ boardHistory.Count;
+        //Si una reina se esta moviendo, la ejecucion se espera a que finalize.
+        if (moverReina)
         {
-            //Actualizacion de la posicion inicial de las reinas por si cambia el tamaño de la pantalla.
-            posicionXInicial = posicionesIniciales[tamaño - 4].gameObject.transform.position.x;
-            if (!finished)
+            moverReinas();
+        }
+        else if (play)
+        {
+            //Cuando una llamada recursiva se de.
+            if (nextStep && i < boardHistory.Count - 1)
             {
-                esSolActualText.text = "EsSol: False";
-                if (moverReina)
-                {
-                    moverReinas();
-                }
-                else
-                {
-                    if (play)
-                    {
-                        if (nextStep && i < boardHistory.Count - 1)
-                        {
-                            i += 1;
-                            List<TextMeshProUGUI> auxiliar = new List<TextMeshProUGUI>();
-                            List<int> fasesAsociadas = new List<int>();
-                            TextColor tableroEjecucion = new TextColor(fasesAsociadas, auxiliar);
-                            pilaEjecucion.Add(tableroEjecucion);
-                            faseDePintado(boardHistory[i], fase, boardHistory.Count - 1 == i);
-                            estadoCorutina(boardHistory[i], fase, boardHistory.Count - 1 == i);
-                            foreach (GameObject funcion in llamadasRecursivas)
-                            {
-                                funcion.gameObject.SetActive(false);
-                            }
-                            filActualText.text = "Fil actual: " + boardHistory[i].vectorSolucion.Count;
-                            foreach (int ultimo in boardHistory[i].vectorSolucion)
-                            {
-                                colActual = ultimo + 1;
-                            }
-                            colActualText.text = "Col actual: " + colActual;
-                            for (int j = 0; j < boardHistory[i].vectorSolucion.Count - 1; j++)
-                            {
-                                llamadasRecursivas[j].gameObject.SetActive(true);
-                            }
-                            for (int j = 0; j <= boardHistory[i].vectorSolucion.Count - 1; j++)
-                            {
-                                pieLlamada[j].text = "" + (boardHistory[i].vectorSolucion.Count - j);
-                            }
-                            nextStep = false;
-                        }
-                        else if (nextN && i < boardHistory.Count - 1)
-                        {
-                            i += 1;
-                            List<TextMeshProUGUI> auxiliar = new List<TextMeshProUGUI>();
-                            List<int> fasesAsociadas = new List<int>();
-                            TextColor tableroEjecucion = new TextColor(fasesAsociadas, auxiliar);
-                            pilaEjecucion.Add(tableroEjecucion);
-                            faseDePintado(boardHistory[i], fase, boardHistory.Count - 1 == i);
-                            estadoCorutina(boardHistory[i], fase, boardHistory.Count - 1 == i);
-                            foreach (GameObject funcion in llamadasRecursivas)
-                            {
-                                funcion.gameObject.SetActive(false);
-                            }
-                            filActualText.text = "Fil actual: " + boardHistory[i].vectorSolucion.Count;
-                            foreach (int ultimo in boardHistory[i].vectorSolucion)
-                            {
-                                colActual = ultimo + 1;
-                            }
-                            colActualText.text = "Col actual: " + colActual;
-                            for (int j = 0; j < boardHistory[i].vectorSolucion.Count - 1; j++)
-                            {
-                                llamadasRecursivas[j].gameObject.SetActive(true);
-                            }
-                            for (int j = 0; j <= boardHistory[i].vectorSolucion.Count - 1; j++)
-                            {
-                                pieLlamada[j].text = "" + (boardHistory[i].vectorSolucion.Count - j);
-                            }
-                            nextN = false;
-                        }
-                        else if (recuperarEstadoCorutina)
-                        {
-                            recuperarEstadoCorutina = false;
-                            faseDePintado(boardHistory[i], fase, boardHistory.Count - 1 == i);
-                            estadoCorutina(boardHistory[i], fase, boardHistory.Count - 1 == i);
-                            foreach (GameObject funcion in llamadasRecursivas)
-                            {
-                                funcion.gameObject.SetActive(false);
-                            }
-                            filActualText.text = "Fil actual: " + boardHistory[i].vectorSolucion.Count;
-                            foreach (int ultimo in boardHistory[i].vectorSolucion)
-                            {
-                                colActual = ultimo + 1;
-                            }
-                            colActualText.text = "Col actual: " + colActual;
-                            for (int j = 0; j < boardHistory[i].vectorSolucion.Count - 1; j++)
-                            {
-                                llamadasRecursivas[j].gameObject.SetActive(true);
-                            }
-                            for (int j = 0; j <= boardHistory[i].vectorSolucion.Count - 1; j++)
-                            {
-                                pieLlamada[j].text = "" + (boardHistory[i].vectorSolucion.Count - j);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        if (nextStep || backStep)
-                        {
-                            foreach (GameObject funcion in llamadasRecursivas)
-                            {
-                                funcion.gameObject.SetActive(false);
-                            }
-                            filActualText.text = "Fil actual: " + boardHistory[i].vectorSolucion.Count;
-                            foreach (int ultimo in boardHistory[i].vectorSolucion)
-                            {
-                                colActual = ultimo + 1;
-                            }
-                            colActualText.text = "Col actual: " + colActual;
-                            faseDePintado(boardHistory[i], fase, boardHistory.Count - 1 == i);
-                            for (int j = 0; j < boardHistory[i].vectorSolucion.Count - 1; j++)
-                            {
-                                llamadasRecursivas[j].gameObject.SetActive(true);
-                            }
-                            for (int j = 0; j <= boardHistory[i].vectorSolucion.Count - 1; j++)
-                            {
-                                pieLlamada[j].text = "" + (boardHistory[i].vectorSolucion.Count - j);
-                            }
-                            nextStep = false;
-                            backStep = false;
-                        }
-                    }
-                }
+                nextStep = false;
+                i += 1;
+                List<TextMeshProUGUI> auxiliar = new List<TextMeshProUGUI>();
+                List<int> fasesAsociadas = new List<int>();
+                BoardHistory tableroEjecucion = new BoardHistory(fasesAsociadas, auxiliar);
+                //Añadimos una nueva pila de ejecución para esta llamada recursiva.
+                menu.pilaEjecucion.Add(tableroEjecucion);
+                //Empezamos una corutina.
+                StartCoroutine(waitForNextText(boardHistory[i], boardHistory.Count - 1 == i));
             }
-            else
+            else if (nextText)
             {
-                for (int j = 0; j < boardHistory[i].vectorSolucion.Count - 1; j++)
-                {
-                    llamadasRecursivas[j].gameObject.SetActive(false);
-                }
-                pieLlamada[0].text = "" + 1;
-                esSolActualText.text = "EsSol: True";
+                nextText = false;
+                //Actualizamos la fase, es decir avanzamos hacia el siguiente paso. 
+                fase += 1;
+                //Empezamos una corutina.
+                StartCoroutine(waitForNextText(boardHistory[i], boardHistory.Count - 1 == i));
+
+            }
+            else if (recuperarEstadoCorutina)
+            {
+                recuperarEstadoCorutina = false;
+                //Retomamos la corutina en la que estabamos antes de pausar la ejecucion.
+                StartCoroutine(waitForNextText(boardHistory[i], boardHistory.Count - 1 == i));
+            }
+        }
+        //Mostramos el numero de llamadas recursivas hechas asi como la fila y la columna actual del tablero.
+        if ((play || backStep || nextStep2  ) && !(boardHistory.Count - 1 == i))
+        {
+            foreach (GameObject funcion in llamadasRecursivas)
+            {
+                funcion.gameObject.SetActive(false);
+            }
+            filActualText.text = "Fil actual: " + boardHistory[i].vectorSolucion.Count;
+            foreach (int ultimo in boardHistory[i].vectorSolucion)
+            {
+                colActual = ultimo + 1;
+            }
+            colActualText.text = "Col actual: " + colActual;
+            for (int j = 0; j < boardHistory[i].vectorSolucion.Count - 1; j++)
+            {
+                llamadasRecursivas[j].gameObject.SetActive(true);
+            }
+            for (int j = 0; j <= boardHistory[i].vectorSolucion.Count - 1; j++)
+            {
+                pieLlamada[j].text = "" + (boardHistory[i].vectorSolucion.Count - j);
             }
         }
     }
 
-    public void moverReinas() {
+    //Actualiza la posicion de la reina en cada iteración del update.
+    public void moverReinas()
+    {
         towardsTarget = targetPosition.transform.position - reinas[boardHistory[i].vectorSolucion.Count - 1].transform.position;
         reinas[boardHistory[i].vectorSolucion.Count - 1].transform.position += towardsTarget.normalized * movementSpeed * Time.deltaTime;
         float error = 0.03f;
-        if (reinas[boardHistory[i].vectorSolucion.Count - 1].transform.position.x > targetPosition.transform.position.x -error && reinas[boardHistory[i].vectorSolucion.Count - 1].transform.position.x < targetPosition.transform.position.x + error)
+        if (reinas[boardHistory[i].vectorSolucion.Count - 1].transform.position.x > targetPosition.transform.position.x - error && reinas[boardHistory[i].vectorSolucion.Count - 1].transform.position.x < targetPosition.transform.position.x + error)
         {
             reinas[boardHistory[i].vectorSolucion.Count - 1].transform.position = targetPosition.transform.position;
             moverReina = false;
         }
         Debug.DrawLine(reinas[boardHistory[i].vectorSolucion.Count - 1].transform.position, targetPosition.transform.position, Color.green);
     }
-   
-    //Contiene todos los textos del codigo.
-    public void addTextos(List<TextMeshProUGUI> piscinaTextos)
+
+    //Este método pintará la fase actual de la ejecucion, además de elegir el camino en caso de encontrarnos en un if o else, en base a los valores guardados en nuestro boardHistory, el cual guarda todos los valores de cada una de las fases del tablero.
+    public void faseDePintado(DataHistory boardHistory, int fase, bool lastMove)
     {
-        piscinaTextos.Add(esFactibleText);
-        piscinaTextos.Add(colText);
-        piscinaTextos.Add(diag1Text);
-        piscinaTextos.Add(diag2Text);
-        piscinaTextos.Add(defNReinasText);
-        piscinaTextos.Add(ifKText);
-        piscinaTextos.Add(esSolTrueText);
-        piscinaTextos.Add(elseText);
-        piscinaTextos.Add(esSolFalseText);
-        piscinaTextos.Add(col0Text);
-        piscinaTextos.Add(whileNotEsSolText);
-        piscinaTextos.Add(IfEsFactibleText);
-        piscinaTextos.Add(defEsFactibleText);
-        piscinaTextos.Add(returnEsFactibleText);
-        piscinaTextos.Add(tab1Text);
-        piscinaTextos.Add(NReinasRecursiveText);
-        piscinaTextos.Add(col1Text);
-        piscinaTextos.Add(returnDefReinasText);
-
-        piscinaTextosOriginal.Add(esFactibleText.text);
-        piscinaTextosOriginal.Add(colText.text);
-        piscinaTextosOriginal.Add(diag1Text.text);
-        piscinaTextosOriginal.Add(diag2Text.text);
-        piscinaTextosOriginal.Add(defNReinasText.text);
-        piscinaTextosOriginal.Add(ifKText.text);
-        piscinaTextosOriginal.Add(esSolTrueText.text);
-        piscinaTextosOriginal.Add(elseText.text);
-        piscinaTextosOriginal.Add(esSolFalseText.text);
-        piscinaTextosOriginal.Add(col0Text.text);
-        piscinaTextosOriginal.Add(whileNotEsSolText.text);
-        piscinaTextosOriginal.Add(IfEsFactibleText.text);
-        piscinaTextosOriginal.Add(defEsFactibleText.text);
-        piscinaTextosOriginal.Add(returnEsFactibleText.text);
-        piscinaTextosOriginal.Add(tab1Text.text);
-        piscinaTextosOriginal.Add(NReinasRecursiveText.text);
-        piscinaTextosOriginal.Add(col1Text.text);
-        piscinaTextosOriginal.Add(returnDefReinasText.text);
-    }
-
-    public void estadoCorutina(DataHistory boardHistory, int fase, bool lastMove)
-    {
-        //En que momento del pintado nos encontramos?
-
+        esSolActualText.text = "EsSol actual: " + boardHistory.esSol;
+        if (boardHistory.esSol)
+        {
+            for (int j = 0; j < boardHistory.vectorSolucion.Count - 1; j++)
+            {
+                llamadasRecursivas[j].gameObject.SetActive(false);
+            }
+            pieLlamada[0].text = "" + 1;
+        }
+        int camino = 0;
         switch (fase)
         {
             case 0:
-                //IniciarPintado
-                if (nextStep || play)
-                {
-                    StartCoroutine(waitForNextMove(boardHistory, lastMove));
-                    nextStep = false;
-                }
-                else if (nextN || play) {
-                    StartCoroutine(waitForWhileNotEsSol(boardHistory, lastMove));
-                    nextN = false;
-                }
-                break;
-            case 1:
-                //Pintar el tablero sin las columnas o diagonales factibles
-                StartCoroutine(waitForNextMove(boardHistory, lastMove));
-                break;
-            case 2:
-                //Pintar la cabecera de la funcion NReinas.
-                StartCoroutine(waitForDefNReinas(boardHistory, lastMove));
-                //defNReinasText.color = Color.cyan;
-                break;
-            case 3:
-                StartCoroutine(waitForIFK(boardHistory, lastMove));
-                //defNReinasText.color = Color.white;
-                //ifKText.color = Color.cyan;
-                break;
-            case 4:
-                if (lastMove)
-                {
-                    StartCoroutine(waitForEsSolTrue(boardHistory, lastMove));
-                    //ifKText.color = Color.white;
-                    //esSolTrueText.color = Color.cyan;
-                }
-                else
-                {
-                    StartCoroutine(waitForElse(boardHistory, lastMove));
-                    //ifKText.color = Color.white;
-                    //elseText.color = Color.cyan;
-                }
-                break;
-            case 5:
-
-                if (lastMove)
-                {
-                    StartCoroutine(waitForReturnDefReinas(boardHistory, lastMove));
-                    //esSolTrueText.color = Color.white;
-                    //returnDefReinasText.color = Color.cyan;
-                    //Acaba la ejecucion.
-                }
-                else
-                {
-                    StartCoroutine(waitForEsSolFalse(boardHistory, lastMove));
-                    //elseText.color = Color.white;
-                    //esSolFalseText.color = Color.cyan;
-                }
-                break;
-            case 6:
-                StartCoroutine(waitForN0(boardHistory, lastMove));
-                //esSolFalseText.color = Color.white;
-                //n0Text.color = Color.cyan;
-                break;
-
-            case 7:
-                StartCoroutine(waitForWhileNotEsSol(boardHistory, lastMove));
-                //printBoardFirstStep(boardHistory);
-                //n0Text.color = Color.white;
-                //whileNotEsSolText.color = Color.cyan;
-                break;
-
-            case 8:
-                StartCoroutine(waitForIfEsFactible(boardHistory, lastMove));
-                //whileNotEsSolText.color = Color.white;
-                //IfEsFactibleText.color = Color.cyan;
-                break;
-
-            case 9:
-                StartCoroutine(waitForDefEsFactible(boardHistory, lastMove));
-                //IfEsFactibleText.color = Color.white;
-                //defEsFactibleText.color = Color.cyan;
-                break;
-
-            case 10:
-                StartCoroutine(waitForFactibleTint(boardHistory, lastMove));
-                //defEsFactibleText.color = Color.white;
-                //printBoard(boardHistory);
-                break;
-
-            case 11:
-                StartCoroutine(waitForReturnEsFactible(boardHistory, lastMove));
-                //colText.color = Color.white;
-                //diag1Text.color = Color.white;
-                //diag2Text.color = Color.white;
-                //returnEsFactibleText.color = Color.cyan;
-                break;
-
-            case 12:
-                if (boardHistory.colOk && boardHistory.diag1Ok && boardHistory.diag2Ok)
-                {
-                    //Reseteo de es factible y vuelta a la funcion nReinas.
-                    StartCoroutine(waitForTupla1Text(boardHistory, lastMove));
-                    //printBoardFirstStep(boardHistory);
-                    //returnEsFactibleText.color = Color.white;
-                    //tupla1Text.color = Color.cyan;
-                }
-                else
-                {
-                    //Reseteo de es factible y vuelta a la funcion nReinas.
-                    StartCoroutine(waitForn1Text(boardHistory, lastMove));
-                    //printBoardFirstStep(boardHistory);
-                    //returnEsFactibleText.color = Color.white;
-                    //n1Text.color = Color.cyan;
-                }
-
-                break;
-
-            case 13:
-                if (boardHistory.colOk && boardHistory.diag1Ok && boardHistory.diag2Ok)
-                {
-                    StartCoroutine(waitForNReinasText(boardHistory, lastMove));
-                    //tupla1Text.color = Color.white;
-                    //NReinasRecursiveText.color = Color.cyan;
-                }
-                else
-                {
-                    StartCoroutine(waitForAdvanceCol(boardHistory, lastMove));
-                    //n1Text.color = Color.white;
-                }
-
-                break;
-
-            case 14:
-                StartCoroutine(waitForAdvanceFila(boardHistory, lastMove));
-                //NReinasRecursiveText.color = Color.white;
-                break;
-        }
-    }
-
-    public void faseDePintado(DataHistory boardHistory,int fase, bool lastMove) {
-        //En que momento del pintado nos encontramos?
-
-        switch (fase) {
-            case 0:
-                //IniciarPintado
-                for(int i = 0; i<piscinaTextos.Count; i++)
-                {
-                    piscinaTextos[i].text = piscinaTextosOriginal[i];
-                    piscinaTextos[i].color = Color.white;
-                }
-                pilaEjecucion[i].pilaPintado.Clear();
-                break;
-            case 1:
-                //Pintar el tablero sin las columnas o diagonales factibles
-                //waitForNextMove(boardHistory, lastMove)
+                //Pintamos el primer paso del tablero
                 printBoardFirstStep(boardHistory);
                 break;
             case 2:
-                //Pintar la cabecera de la funcion NReinas.
-                //waitForDefNReinas(boardHistory, lastMove)
-                printBoardFirstStep(boardHistory);
-                for (int i = 0; i < piscinaTextos.Count; i++)
-                {
-                    piscinaTextos[i].text = piscinaTextosOriginal[i];
-                    piscinaTextos[i].color = Color.white;
-                }
-                defNReinasText.text = "def NReinasVA(tab, fil):";
-                defNReinasText.color = Color.cyan;
-                if (nextStep || play)
-                {
-                    pilaEjecucion[i].fases.Add(fase);
-                    pilaEjecucion[i].pilaPintado.Add(defNReinasText);
-                }
-                break;
-            case 3:
-                //waitForIFK(boardHistory, lastMove)
-                for (int i = 0; i < piscinaTextos.Count; i++)
-                {
-                    piscinaTextos[i].text = piscinaTextosOriginal[i];
-                    piscinaTextos[i].color = Color.white;
-                }
-                ifKText.text = "if fil == np.size(tab, 0):";
-                ifKText.color = Color.cyan;
-                if (nextStep || play)
-                {
-                    pilaEjecucion[i].fases.Add(fase);
-                    pilaEjecucion[i].pilaPintado.Add(ifKText);
-                }
-                break;
-            case 4:
+                //Si es el ultimo  tablero, es decir la solucion, finalizará la ejecucion, sino seguira con ella, este se trata del primer if del codigo.
                 if (lastMove)
                 {
-                    //waitForEsSolTrue(boardHistory, lastMove)
-                    for (int i = 0; i < piscinaTextos.Count; i++)
-                    {
-                        piscinaTextos[i].text = piscinaTextosOriginal[i];
-                        piscinaTextos[i].color = Color.white;
-                    }
-                    esSolTrueText.text = "esSol = True";
-                    esSolTrueText.color = Color.cyan;
-                    if (nextStep || play)
-                    {
-                        pilaEjecucion[i].fases.Add(fase);
-                        pilaEjecucion[i].pilaPintado.Add(esSolTrueText);
-                    }
+                    camino = 0;
                 }
                 else
                 {
-                    //waitForElse(boardHistory, lastMove)
-                    for (int i = 0; i < piscinaTextos.Count; i++)
-                    {
-                        piscinaTextos[i].text = piscinaTextosOriginal[i];
-                        piscinaTextos[i].color = Color.white;
-                    }
-                    elseText.text = "else:";
-                    elseText.color = Color.cyan;
-                    if (nextStep || play)
-                    {
-                        pilaEjecucion[i].fases.Add(fase);
-                        pilaEjecucion[i].pilaPintado.Add(elseText);
-                    }
+                    camino = 1;
                 }
                 break;
-            case 5:
-
+            case 3:
+                //Continuacion del caso anterior
                 if (lastMove)
                 {
-                    //waitForReturnDefReinas(boardHistory, lastMove)
-                    for (int i = 0; i < piscinaTextos.Count; i++)
-                    {
-                        piscinaTextos[i].text = piscinaTextosOriginal[i];
-                        piscinaTextos[i].color = Color.white;
-                    }
-                    returnDefReinasText.text = "return tab, esSol";
-                    returnDefReinasText.color = Color.cyan;
-                    if (nextStep || play)
-                    {
-                        pilaEjecucion[i].fases.Add(fase);
-                        pilaEjecucion[i].pilaPintado.Add(returnDefReinasText);
-                    }
                     finished = true;
-                    //Acaba la ejecucion.
+                    camino = 0;
                 }
                 else
                 {
-                    //waitForEsSolFalse(boardHistory, lastMove)
-                    for (int i = 0; i < piscinaTextos.Count; i++)
-                    {
-                        piscinaTextos[i].text = piscinaTextosOriginal[i];
-                        piscinaTextos[i].color = Color.white;
-                    }
-                    esSolFalseText.text = "esSol = False";
-                    esSolFalseText.color = Color.cyan;
-                    if (nextStep || play)
-                    {
-                        pilaEjecucion[i].fases.Add(fase);
-                        pilaEjecucion[i].pilaPintado.Add(esSolFalseText);
-                    }
+                    camino = 1;
                 }
                 break;
+            case 5:
+                printBoardFirstStep(boardHistory);
+                break;
+
             case 6:
-                //waitForN0(boardHistory, lastMove)
-                for (int i = 0; i < piscinaTextos.Count; i++)
-                {
-                    piscinaTextos[i].text = piscinaTextosOriginal[i];
-                    piscinaTextos[i].color = Color.white;
-                }
-                col0Text.text = "col = 0";
-                col0Text.color = Color.cyan;
-                if (nextStep || play)
-                {
-                    pilaEjecucion[i].fases.Add(fase);
-                    pilaEjecucion[i].pilaPintado.Add(col0Text);
-                }
-                break;
-
-            case 7:
-                //waitForWhileNotEsSol(boardHistory, lastMove)
-                printBoardFirstStep(boardHistory);
-                for (int i = 0; i < piscinaTextos.Count; i++)
-                {
-                    piscinaTextos[i].text = piscinaTextosOriginal[i];
-                    piscinaTextos[i].color = Color.white;
-                }
-                whileNotEsSolText.text = "while not esSol and col < np.size(tab, 1):";
-                whileNotEsSolText.color = Color.cyan;
-                if (nextStep || play)
-                {
-                    pilaEjecucion[i].fases.Add(fase);
-                    pilaEjecucion[i].pilaPintado.Add(whileNotEsSolText);
-                }
-                break;
-
-            case 8:
-                //waitForIfEsFactible(boardHistory, lastMove)
-                printBoardFirstStep(boardHistory);
-                for (int i = 0; i < piscinaTextos.Count; i++)
-                {
-                    piscinaTextos[i].text = piscinaTextosOriginal[i];
-                    piscinaTextos[i].color = Color.white;
-                }
+                //Desactivamos el esFactible para que no sea visible si es un paso atras.
                 if (backStep)
                 {
                     defEsFactibleFunc.gameObject.SetActive(false);
                 }
-                IfEsFactibleText.text = "if EsFactible(tab, fil, col):";
-                IfEsFactibleText.color = Color.cyan;
-                if (nextStep || play)
-                {
-                    pilaEjecucion[i].fases.Add(fase);
-                    pilaEjecucion[i].pilaPintado.Add(IfEsFactibleText);
-                }
+                break;
+
+            case 7:
+                //Activamos el esFactible para que no sea visible si es un paso adelante.
+                printBoardFirstStep(boardHistory);
+                defEsFactibleFunc.gameObject.SetActive(true);
+                break;
+
+            case 8:
+                //Pintamos la columna del tablero, de verde en caso de ser factible y de rojo en caso de no serlo.
+                printBoardCol(boardHistory);
                 break;
 
             case 9:
-                //waitForDefEsFactible(boardHistory, lastMove)
-                printBoardFirstStep(boardHistory);
-                for (int i = 0; i < piscinaTextos.Count; i++)
-                {
-                    piscinaTextos[i].text = piscinaTextosOriginal[i];
-                    piscinaTextos[i].color = Color.white;
-                }
-                defEsFactibleFunc.gameObject.SetActive(true);
-                defEsFactibleText.text = "def EsFactible(tab, f, c):";
-                defEsFactibleText.color = Color.cyan;
-                if (nextStep || play)
-                {
-                    pilaEjecucion[i].fases.Add(fase);
-                    pilaEjecucion[i].pilaPintado.Add(defEsFactibleText);
-                }
+                //Pintamos la diagonal 1 del tablero, de verde en caso de ser factible y de rojo en caso de no serlo.
+                printBoardDiag1(boardHistory);
                 break;
 
             case 10:
-                //waitForFactibleTint(boardHistory, lastMove)
-                printBoardFirstStep(boardHistory);
-                for (int i = 0; i < piscinaTextos.Count; i++)
-                {
-                    piscinaTextos[i].text = piscinaTextosOriginal[i];
-                    piscinaTextos[i].color = Color.white;
-                }
-                printBoard(boardHistory);
-
-                if (nextStep || play)
-                {
-                    pilaEjecucion[i].fases.Add(fase);
-                    pilaEjecucion[i].pilaPintado.Add(colText);
-                }
+                //Pintamos la diagonal 2 del tablero, de verde en caso de ser factible y de rojo en caso de no serlo.
+                printBoardDiag2(boardHistory);
                 break;
 
             case 11:
-                //waitForReturnEsFactible(boardHistory, lastMove)
+                //Volvemos a pintar el tablero como en el primer paso para quitar los colores.
                 printBoardFirstStep(boardHistory);
-                for (int i = 0; i < piscinaTextos.Count; i++)
-                {
-                    piscinaTextos[i].text = piscinaTextosOriginal[i];
-                    piscinaTextos[i].color = Color.white;
-                }
                 if (backStep)
                 {
                     defEsFactibleFunc.gameObject.SetActive(true);
                 }
-                returnEsFactibleText.text = "return colOk and diag1Ok and diag2Ok";
-                returnEsFactibleText.color = Color.cyan;
-                if (nextStep || play)
-                {
-                    pilaEjecucion[i].fases.Add(fase);
-                    pilaEjecucion[i].pilaPintado.Add(returnEsFactibleText);
-                }
-                
+
                 break;
 
             case 12:
-                printBoardFirstStep(boardHistory);
                 defEsFactibleFunc.gameObject.SetActive(false);
+                //Aqui nos encontramos ante el segundo if del problema en el cual tambien tendremos que elegir entre los dos caminos.
                 if (boardHistory.colOk && boardHistory.diag1Ok && boardHistory.diag2Ok)
                 {
-                    //Reseteo de es factible y vuelta a la funcion nReinas.
-                    //waitForTupla1Text(boardHistory, lastMove)
-                    for (int i = 0; i < piscinaTextos.Count; i++)
-                    {
-                        piscinaTextos[i].text = piscinaTextosOriginal[i];
-                        piscinaTextos[i].color = Color.white;
-                    }
-                    tab1Text.text = "tab[fil][col] = 1";
-                    tab1Text.color = Color.cyan;
-                    if (nextStep || play)
-                    {
-                        pilaEjecucion[i].fases.Add(fase);
-                        pilaEjecucion[i].pilaPintado.Add(tab1Text);
-                    }
+                    camino = 0;
                 }
                 else
                 {
-                    //Reseteo de es factible y vuelta a la funcion nReinas.
-                    //waitForn1Text(boardHistory, lastMove)
-                    for (int i = 0; i < piscinaTextos.Count; i++)
-                    {
-                        piscinaTextos[i].text = piscinaTextosOriginal[i];
-                        piscinaTextos[i].color = Color.white;
-                    }
-                    col1Text.text = "col += 1";
-                    col1Text.color = Color.cyan;
-                    if (nextStep || play)
-                    {
-                        pilaEjecucion[i].fases.Add(fase);
-                        pilaEjecucion[i].pilaPintado.Add(col1Text);
-                    }
+                    camino = 1;
                 }
 
                 break;
-
-            case 13:
-                if (boardHistory.colOk && boardHistory.diag1Ok && boardHistory.diag2Ok)
-                {
-                    //waitForNReinasText(boardHistory, lastMove)
-                    for (int i = 0; i < piscinaTextos.Count; i++)
-                    {
-                        piscinaTextos[i].text = piscinaTextosOriginal[i];
-                        piscinaTextos[i].color = Color.white;
-                    }
-                    NReinasRecursiveText.text = "[tab, esSol] = nReinasVA(tab, fil + 1)";
-                    NReinasRecursiveText.color = Color.cyan;
-                    if (nextStep || play)
-                    {
-                        pilaEjecucion[i].fases.Add(fase);
-                        pilaEjecucion[i].pilaPintado.Add(NReinasRecursiveText);
-                    }
-                }
-                else
-                {
-                    //waitForAdvanceCol(boardHistory, lastMove)
-                    for (int i = 0; i < piscinaTextos.Count; i++)
-                    {
-                        piscinaTextos[i].text = piscinaTextosOriginal[i];
-                        piscinaTextos[i].color = Color.white;
-                    }
-                }
-
-                break;
-
-            case 14:
-                //waitForAdvanceFila(boardHistory, lastMove)
-                for (int i = 0; i < piscinaTextos.Count; i++)
-                {
-                    piscinaTextos[i].text = piscinaTextosOriginal[i];
-                    piscinaTextos[i].color = Color.white;
-                }
-                break;
         }
+
+        menu.pila(fase, camino, i, backStep, textosSinPintar, boardHistory, problem);
+
     }
 
-    IEnumerator waitForNextMove(DataHistory boardHistory,bool lastMove)
+    //Este método pintará el siguiente estado del tablero y esperara un numero de segundos.
+    IEnumerator waitForNextText(DataHistory boardHistory, bool lastMove)
     {
-        if (play)
-        {
-            yield return new WaitForSeconds(speedNextMove.value);
-            fase += 1;
-            faseDePintado(boardHistory, fase, lastMove);
-            StartCoroutine(waitForDefNReinas(boardHistory, lastMove));
-        }
+        faseDePintado(boardHistory, fase, lastMove);
+        yield return new WaitForSeconds(speedNextMove.value);
+        var results = menu.waitForNextText(lastMove, fase, nextText, nextStep, boardHistory, problem);
+        nextStep = results.Item1;
+        nextText = results.Item2;
+        fase = results.Item3;
     }
 
-    IEnumerator waitForDefNReinas(DataHistory boardHistory,bool lastMove)
-    {
-        if (play)
-        {
-            yield return new WaitForSeconds(speedNextMove.value);
-            fase += 1;
-            faseDePintado(boardHistory, fase, lastMove);
-            StartCoroutine(waitForIFK(boardHistory, lastMove));
-        }
-    }
-
-    IEnumerator waitForIFK(DataHistory boardHistory,bool lastMove)
-    {
-        if (play)
-        {
-            yield return new WaitForSeconds(speedNextMove.value);
-            fase += 1;
-            faseDePintado(boardHistory, fase,lastMove);
-            if (lastMove)
-            {
-                StartCoroutine(waitForEsSolTrue(boardHistory, lastMove));
-            }
-            else
-            {
-                StartCoroutine(waitForElse(boardHistory, lastMove));
-            }
-        }
-    }
-
-    IEnumerator waitForEsSolTrue(DataHistory boardHistory, bool lastMove)
-    {
-
-        if (play)
-        {
-            yield return new WaitForSeconds(speedNextMove.value);
-            fase += 1;
-            faseDePintado(boardHistory, fase, lastMove);
-            StartCoroutine(waitForReturnDefReinas(boardHistory, lastMove));
-        }
-    }
-
-    IEnumerator waitForElse(DataHistory boardHistory, bool lastMove)
-    {
-        if (play)
-        {
-            yield return new WaitForSeconds(speedNextMove.value);
-            fase += 1;
-            faseDePintado(boardHistory, fase, lastMove);
-            StartCoroutine(waitForEsSolFalse(boardHistory, lastMove));
-        }
-    }
-
-    IEnumerator waitForReturnDefReinas(DataHistory boardHistory, bool lastMove)
-    {
-        if (play)
-        {
-            yield return new WaitForSeconds(speedNextMove.value);
-            fase += 1;
-            faseDePintado(boardHistory, fase, lastMove);
-            //Acaba la ejecucion.
-        }
-    }
-
-    IEnumerator waitForEsSolFalse(DataHistory boardHistory,bool lastMove)
-    {
-        if (play)
-        {
-            yield return new WaitForSeconds(speedNextMove.value);
-            fase += 1;
-            faseDePintado(boardHistory, fase, lastMove);
-            StartCoroutine(waitForN0(boardHistory, lastMove));
-        }
-    }
-
-    IEnumerator waitForN0(DataHistory boardHistory,bool lastMove)
-    {
-
-        if (play)
-        {
-            yield return new WaitForSeconds(speedNextMove.value);
-            fase += 1;
-            faseDePintado(boardHistory, fase, lastMove);
-            StartCoroutine(waitForWhileNotEsSol(boardHistory, lastMove));
-        }
-    }
-
-    IEnumerator waitForWhileNotEsSol(DataHistory boardHistory, bool lastMove)
-    {
-        if (play)
-        {
-            yield return new WaitForSeconds(speedNextMove.value);
-            fase += 1;
-            faseDePintado(boardHistory, fase, lastMove);
-            StartCoroutine(waitForIfEsFactible(boardHistory, lastMove));
-        }
-    }
-
-    IEnumerator waitForIfEsFactible(DataHistory boardHistory,bool lastMove)
-    {
-
-        if (play)
-        {
-            yield return new WaitForSeconds(speedNextMove.value);
-            fase += 1;
-            faseDePintado(boardHistory, fase, lastMove);
-            StartCoroutine(waitForDefEsFactible(boardHistory, lastMove));
-        }
-    }
-    
-    IEnumerator waitForDefEsFactible(DataHistory boardHistory, bool lastMove)
-    {
-
-        if (play)
-        {
-            yield return new WaitForSeconds(speedNextMove.value);
-            fase += 1;
-            faseDePintado(boardHistory, fase, lastMove);
-            StartCoroutine(waitForFactibleTint(boardHistory, lastMove));
-        }
-    }
-
-    IEnumerator waitForFactibleTint(DataHistory boardHistory,bool lastMove)
-    {
-
-        if (play)
-        {
-            //Se pinta la columna y diagonales del tablero y código.
-            yield return new WaitForSeconds(speedNextMove.value);
-            fase += 1;
-            faseDePintado(boardHistory, fase, lastMove);
-            StartCoroutine(waitForReturnEsFactible(boardHistory, lastMove));
-        }
-    }
-
-    IEnumerator waitForReturnEsFactible(DataHistory boardHistory,bool lastMove)
-    {
-        if (play)
-        {
-            //Reseteo de los colores del tablero.
-            yield return new WaitForSeconds(speedNextMove.value);
-            fase += 1;
-            faseDePintado(boardHistory, fase, lastMove);
-            if (boardHistory.colOk && boardHistory.diag1Ok && boardHistory.diag2Ok)
-            {
-                StartCoroutine(waitForTupla1Text(boardHistory, lastMove));
-            }
-            else
-            {
-                StartCoroutine(waitForn1Text(boardHistory, lastMove));
-            }
-        }
-    }
-
-    IEnumerator waitForTupla1Text(DataHistory boardHistory,bool lastMove)
-    {
-
-        if (play)
-        {
-            yield return new WaitForSeconds(speedNextMove.value);
-            fase += 1;
-            faseDePintado(boardHistory, fase, lastMove);
-            StartCoroutine(waitForNReinasText(boardHistory, lastMove));
-        }
-    }
-
-    IEnumerator waitForn1Text(DataHistory boardHistory, bool lastMove)
-    {
-        if (play)
-        {
-            yield return new WaitForSeconds(speedNextMove.value);
-            fase += 1;
-            faseDePintado(boardHistory, fase, lastMove);
-            StartCoroutine(waitForAdvanceCol(boardHistory, lastMove));
-        }
-    }
-
-    IEnumerator waitForNReinasText(DataHistory boardHistory,bool lastMove)
-    {
-
-        if (play)
-        {
-            yield return new WaitForSeconds(speedNextMove.value);
-            fase += 1;
-            faseDePintado(boardHistory, fase, lastMove);
-            StartCoroutine(waitForAdvanceFila(boardHistory, lastMove));
-        }
-    }
-
-    IEnumerator waitForAdvanceCol(DataHistory boardHistory,bool lastMove)
-    {
-        if (play)
-        {
-            //Llamada recursiva a la funcion de NReinas.
-            yield return new WaitForSeconds(speedNextMove.value);
-            fase += 1;
-            faseDePintado(boardHistory, fase, lastMove);
-            fase = 7;
-            nextN = true;
-        }
-    }
-    
-    IEnumerator waitForAdvanceFila(DataHistory boardHistory,bool lastMove)
-    {
-
-        if (play)
-        {
-            //Avanza la reina a la siguiente columna.
-            yield return new WaitForSeconds(speedNextMove.value);
-            fase += 1;
-            faseDePintado(boardHistory, fase, lastMove);
-            fase = 0;
-            if (lastMove)
-            {
-                StartCoroutine(waitForNextMove(boardHistory, lastMove));
-            }
-            nextStep = true;
-        }
-    }
-
+    //Pinta el tablero inicial
     public void printInitialBoard()
     {
         tablero.text = "Tab\n";
@@ -984,6 +317,7 @@ public class BacktrackingAdaptacion : MonoBehaviour
         }
     }
 
+    //Pinta el primer paso del tablero en cada llamada recursiva indicando en que casilla estamos.
     public void printBoardFirstStep(DataHistory boardHistory)
     {
         tablero.text = "Tab\n";
@@ -999,11 +333,11 @@ public class BacktrackingAdaptacion : MonoBehaviour
             {
                 if (boardHistory.vectorSolucion != null && i == boardHistory.fil && j == boardHistory.col)
                 {
+                    //Obtenemos la posicion a la que se tiene que mover la reina.
                     targetPosition.transform.position = piezasTablero[i, j].transform.position;
                     moverReina = true;
-                    //reinas[i].transform.position = piezasTablero[i, j].transform.position;
                     reinas[i].GetComponent<Image>().color = Color.cyan;
-                    piezasTablero[i, j].GetComponent<Image>().color = Color.white; 
+                    piezasTablero[i, j].GetComponent<Image>().color = Color.white;
                     tablero.text += "<color=cyan>" + boardHistory.board[i, j] + "</color> ";
                 }
                 else
@@ -1014,7 +348,7 @@ public class BacktrackingAdaptacion : MonoBehaviour
             }
             tablero.text += "\n";
         }
-        
+
         if (boardHistory.vectorSolucion != null)
         {
             for (int i = 0; i < boardHistory.vectorSolucion.Count; i++)
@@ -1029,7 +363,8 @@ public class BacktrackingAdaptacion : MonoBehaviour
         diag2Text.color = Color.white;
     }
 
-    public void printBoard(DataHistory boardHistory)
+    //Pintamos el tablero pero esta vez pintando la columna en la que estamos de su color correspondiente.
+    public void printBoardCol(DataHistory boardHistory)
     {
         tablero.text = "Tab\n";
         vectorSolucionText.text = "";
@@ -1040,10 +375,10 @@ public class BacktrackingAdaptacion : MonoBehaviour
             {
                 if (boardHistory.vectorSolucion != null && i == boardHistory.fil && j == boardHistory.col)
                 {
+                    //Obtenemos la posicion a la que se tiene que mover la reina.
                     targetPosition.transform.position = piezasTablero[i, j].transform.position;
                     moverReina = true;
-                    //reinas[i].transform.position = piezasTablero[i, j].transform.position;
-                    if (boardHistory.diag1Ok && boardHistory.diag2Ok && boardHistory.colOk)
+                    if (boardHistory.colOk)
                     {
                         reinas[i].GetComponent<Image>().color = Color.green;
                         piezasTablero[i, j].GetComponent<Image>().color = Color.green;
@@ -1059,7 +394,6 @@ public class BacktrackingAdaptacion : MonoBehaviour
                 }
                 else
                 {
-                    EsFactibleTint(boardHistory);
                     if (boardHistory.colOk && printCol(boardHistory.fil, boardHistory.col, i, j))
                     {
                         piezasTablero[i, j].GetComponent<Image>().color = Color.green;
@@ -1070,7 +404,56 @@ public class BacktrackingAdaptacion : MonoBehaviour
                         piezasTablero[i, j].GetComponent<Image>().color = Color.red;
                         tablero.text += "<color=red>" + boardHistory.board[i, j] + "</color> ";
                     }
-                    else if (boardHistory.diag1Ok && printDiag1(boardHistory.fil, boardHistory.col, i, j))
+                    else
+                    {
+                        piezasTablero[i, j].GetComponent<Image>().color = Color.white;
+                        tablero.text += boardHistory.board[i, j] + " ";
+                    }
+
+
+                }
+            }
+            tablero.text += "\n";
+        }
+        if (boardHistory.vectorSolucion != null)
+        {
+            for (int i = 0; i < boardHistory.vectorSolucion.Count; i++)
+            {
+                vectorSolucionText.text += boardHistory.vectorSolucion[i] + "  ";
+            }
+
+        }
+    }
+    
+    //Pintamos el tablero pero esta vez pintando la diagonal1 en la que estamos de su color correspondiente.
+    public void printBoardDiag1(DataHistory boardHistory)
+    {
+        tablero.text = "Tab\n";
+        vectorSolucionText.text = "";
+        for (int i = 0; i < tamaño; i++)
+        {
+            reinas[i].GetComponent<Image>().color = Color.white;
+            for (int j = 0; j < tamaño; j++)
+            {
+                if (boardHistory.vectorSolucion != null && i == boardHistory.fil && j == boardHistory.col)
+                {
+                    if (boardHistory.diag1Ok)
+                    {
+                        reinas[i].GetComponent<Image>().color = Color.green;
+                        piezasTablero[i, j].GetComponent<Image>().color = Color.green;
+                        tablero.text += "<color=green>" + boardHistory.board[i, j] + "</color> ";
+                    }
+                    else
+                    {
+                        reinas[i].GetComponent<Image>().color = Color.red;
+                        piezasTablero[i, j].GetComponent<Image>().color = Color.red;
+                        tablero.text += "<color=red>" + boardHistory.board[i, j] + "</color> ";
+                    }
+
+                }
+                else
+                {
+                    if (boardHistory.diag1Ok && printDiag1(boardHistory.fil, boardHistory.col, i, j))
                     {
                         piezasTablero[i, j].GetComponent<Image>().color = Color.green;
                         tablero.text += "<color=green>" + boardHistory.board[i, j] + "</color> ";
@@ -1080,18 +463,9 @@ public class BacktrackingAdaptacion : MonoBehaviour
                         piezasTablero[i, j].GetComponent<Image>().color = Color.red;
                         tablero.text += "<color=red>" + boardHistory.board[i, j] + "</color> ";
                     }
-                    else if (boardHistory.diag2Ok && printDiag2(boardHistory.fil, boardHistory.col, i, j))
-                    {
-                        piezasTablero[i, j].GetComponent<Image>().color = Color.green;
-                        tablero.text += "<color=green>" + boardHistory.board[i, j] + "</color> ";
-                    }
-                    else if (boardHistory.diag2Ok == false && printDiag2(boardHistory.fil, boardHistory.col, i, j))
-                    {
-                        piezasTablero[i, j].GetComponent<Image>().color = Color.red;
-                        tablero.text += "<color=red>" + boardHistory.board[i, j] + "</color> ";
-                    }
                     else
                     {
+                        piezasTablero[i, j].GetComponent<Image>().color = Color.white;
                         tablero.text += boardHistory.board[i, j] + " ";
                     }
 
@@ -1110,73 +484,98 @@ public class BacktrackingAdaptacion : MonoBehaviour
         }
     }
 
-    public void EsFactibleTint(DataHistory boardHistory)
+    //Pintamos el tablero pero esta vez pintando la diagonal2 en la que estamos de su color correspondiente.
+    public void printBoardDiag2(DataHistory boardHistory)
     {
-        colText.text = "colOk = np.max(tab[:, c]) == 0 ";
-        diag1Text.text = "diag1Ok = True\n"+
-                         "indF = f - 1\n"+
-                         "indC = c - 1\n"+
-                         "while diag1Ok and indF >= 0 and indC >= 0:\n"+
-                         "      diag1Ok = tab[indF, indC] == 0\n"+
-                         "      indF -= 1\n"+
-                         "      indC -= 1\n";
-        diag2Text.text = "diag2Ok = True\n" +
-                         "indF = f - 1\n" +
-                         "indC = c + 1\n" +
-                         "while diag2Ok and indF >= 0 and indC < np.size(tab,1):\n" +
-                         "      diag2Ok = tab[indF, indC] == 0\n" +
-                         "      indF -= 1\n" +
-                         "      indC += 1\n";
-        if (boardHistory.colOk && boardHistory.diag1Ok && boardHistory.diag2Ok)
+        tablero.text = "Tab\n";
+        vectorSolucionText.text = "";
+        for (int i = 0; i < tamaño; i++)
         {
-            colText.color = Color.green;
-            diag1Text.color = Color.green;
-            diag2Text.color = Color.green;
+            reinas[i].GetComponent<Image>().color = Color.white;
+            for (int j = 0; j < tamaño; j++)
+            {
+                if (boardHistory.vectorSolucion != null && i == boardHistory.fil && j == boardHistory.col)
+                {
+                    targetPosition.transform.position = piezasTablero[i, j].transform.position;
+                    moverReina = true;
+                    //reinas[i].transform.position = piezasTablero[i, j].transform.position;
+                    if (boardHistory.diag2Ok)
+                    {
+                        reinas[i].GetComponent<Image>().color = Color.green;
+                        piezasTablero[i, j].GetComponent<Image>().color = Color.green;
+                        tablero.text += "<color=green>" + boardHistory.board[i, j] + "</color> ";
+                    }
+                    else
+                    {
+                        reinas[i].GetComponent<Image>().color = Color.red;
+                        piezasTablero[i, j].GetComponent<Image>().color = Color.red;
+                        tablero.text += "<color=red>" + boardHistory.board[i, j] + "</color> ";
+                    }
+
+                }
+                else
+                {
+                    if (boardHistory.diag2Ok && printDiag2(boardHistory.fil, boardHistory.col, i, j))
+                    {
+                        piezasTablero[i, j].GetComponent<Image>().color = Color.green;
+                        tablero.text += "<color=green>" + boardHistory.board[i, j] + "</color> ";
+                    }
+                    else if (boardHistory.diag2Ok == false && printDiag2(boardHistory.fil, boardHistory.col, i, j))
+                    {
+                        piezasTablero[i, j].GetComponent<Image>().color = Color.red;
+                        tablero.text += "<color=red>" + boardHistory.board[i, j] + "</color> ";
+                    }
+                    else
+                    {
+                        piezasTablero[i, j].GetComponent<Image>().color = Color.white;
+                        tablero.text += boardHistory.board[i, j] + " ";
+                    }
+                }
+            }
+            tablero.text += "\n";
         }
-        else if (boardHistory.colOk && boardHistory.diag1Ok && !boardHistory.diag2Ok)
+        if (boardHistory.vectorSolucion != null)
         {
-            colText.color = Color.green;
-            diag1Text.color = Color.green;
-            diag2Text.color = Color.red;
-        }
-        else if (!boardHistory.colOk && !boardHistory.diag1Ok && !boardHistory.diag2Ok)
-        {
-            colText.color = Color.red;
-            diag1Text.color = Color.red;
-            diag2Text.color = Color.red;
-        }
-        else if (boardHistory.colOk && !boardHistory.diag1Ok && boardHistory.diag2Ok)
-        {
-            colText.color = Color.green;
-            diag1Text.color = Color.red;
-            diag2Text.color = Color.green;
-        }
-        else if (boardHistory.colOk && !boardHistory.diag1Ok && !boardHistory.diag2Ok)
-        {
-            colText.color = Color.green;
-            diag1Text.color = Color.red;
-            diag2Text.color = Color.red;
-        }
-        else if (!boardHistory.colOk && !boardHistory.diag1Ok && boardHistory.diag2Ok)
-        {
-            colText.color = Color.red;
-            diag1Text.color = Color.red;
-            diag2Text.color = Color.green;
-        }
-        else if (!boardHistory.colOk && boardHistory.diag1Ok && boardHistory.diag2Ok)
-        {
-            colText.color = Color.red;
-            diag1Text.color = Color.green;
-            diag2Text.color = Color.green;
-        }
-        else if (!boardHistory.colOk && boardHistory.diag1Ok && !boardHistory.diag2Ok)
-        {
-            colText.color = Color.red;
-            diag1Text.color = Color.green;
-            diag2Text.color = Color.red;
+            for (int i = 0; i < boardHistory.vectorSolucion.Count; i++)
+            {
+                vectorSolucionText.text += boardHistory.vectorSolucion[i] + "  ";
+            }
+
         }
     }
 
+    //Metodo que nos indica si la casilla que estamos analizando pertenece a la columna en la que estamos o no.
+    public bool printCol(int f, int c, int i, int j)
+    {
+        bool subCol = false;
+        bool topCol = false;
+        int indF = f - 1;
+        int indC = c;
+
+        while (indF >= 0)
+        {
+            if (i == indF && j == indC)
+            {
+                subCol = true;
+            }
+            indF -= 1;
+        }
+        indF = f + 1;
+        indC = c;
+
+        while (indF < tamaño)
+        {
+            if (i == indF && j == indC)
+            {
+                topCol = true;
+            }
+            indF += 1;
+        }
+
+        return subCol || topCol;
+    }
+
+    //Metodo que nos indica si la casilla que estamos analizando pertenece a la diagoanl en la que estamos o no.
     public bool printDiag1(int f, int c, int i, int j)
     {
         bool subDiag = false;
@@ -1209,6 +608,7 @@ public class BacktrackingAdaptacion : MonoBehaviour
         return subDiag || topDiag;
     }
 
+    //Metodo que nos indica si la casilla que estamos analizando pertenece a la diagoanl en la que estamos o no.
     public bool printDiag2(int f, int c, int i, int j)
     {
         bool subDiag = false;
@@ -1241,36 +641,7 @@ public class BacktrackingAdaptacion : MonoBehaviour
         return subDiag || topDiag;
     }
 
-    public bool printCol(int f, int c, int i, int j)
-    {
-        bool subCol = false;
-        bool topCol = false;
-        int indF = f - 1;
-        int indC = c;
-
-        while (indF >= 0)
-        {
-            if (i == indF && j == indC)
-            {
-                subCol = true;
-            }
-            indF -= 1;
-        }
-        indF = f + 1;
-        indC = c;
-
-        while (indF < tamaño)
-        {
-            if (i == indF && j == indC)
-            {
-                topCol = true;
-            }
-            indF += 1;
-        }
-
-        return subCol || topCol;
-    }
-
+    //Metodo esfactible para resolver el problema
     public Tuple<bool, bool, bool> EsFactible(int[,] board, int f, int c)
     {
         bool diag1Ok = true;
@@ -1316,12 +687,25 @@ public class BacktrackingAdaptacion : MonoBehaviour
         return Tuple.Create(diag1Ok, diag2Ok, colOk);
     }
 
+    //Codigo NReinas.
     public Tuple<int[,], bool> NReinas(int[,] board, int fil, int[,] boardVisualizer, List<int> vectorSolucion)
     {
         bool esSol;
         if (fil >= tamaño)
         {
             esSol = true;
+            int[,] aux = new int[tamaño, tamaño];
+            for (int i = 0; i < tamaño; i++)
+            {
+                for (int j = 0; j < tamaño; j++)
+                {
+                    aux[i, j] = boardVisualizer[i, j];
+                }
+            }
+            var factibles = EsFactible(board, fil, tamaño - 1);
+            data = new DataHistory(aux, fil, tamaño - 1, factibles.Item1, factibles.Item2, factibles.Item3, esSol);
+            //Guardamos el ultimo tablero y lo añadimos a la lista.
+            boardHistory.Add(data);
         }
         else
         {
@@ -1340,6 +724,7 @@ public class BacktrackingAdaptacion : MonoBehaviour
                 }
                 var factibles = EsFactible(board, fil, col);
                 data = new DataHistory(aux, fil, col, factibles.Item1, factibles.Item2, factibles.Item3);
+                //Añadimos cada uno de los tableros a la lista, con su correspondientes variables.
                 boardHistory.Add(data);
                 if (factibles.Item1 && factibles.Item2 && factibles.Item3)
                 {
@@ -1363,211 +748,241 @@ public class BacktrackingAdaptacion : MonoBehaviour
         return Tuple.Create(board, esSol);
     }
 
+    //Inicializa y guarda referencia a todos los textos del codigo, tanto los pintados como los que no lo están.
+    public void inicializarTextos()
+    {
+        List<TextMeshProUGUI> aux1 = new List<TextMeshProUGUI>();
+        aux1.Add(defNReinasText);
+        aux1.Add(defNReinasText);
+        textos.Add(aux1);
+        aux1 = new List<TextMeshProUGUI>();
+        aux1.Add(ifKText);
+        aux1.Add(ifKText);
+        textos.Add(aux1);
+        aux1 = new List<TextMeshProUGUI>();
+        aux1.Add(esSolTrueText);
+        aux1.Add(elseText);
+        textos.Add(aux1);
+        aux1 = new List<TextMeshProUGUI>();
+        aux1.Add(returnDefReinasText);
+        aux1.Add(esSolFalseText);
+        textos.Add(aux1);
+        aux1 = new List<TextMeshProUGUI>();
+        aux1.Add(col0Text);
+        aux1.Add(col0Text);
+        textos.Add(aux1);
+        aux1 = new List<TextMeshProUGUI>();
+        aux1.Add(whileNotEsSolText);
+        aux1.Add(whileNotEsSolText);
+        textos.Add(aux1);
+        aux1 = new List<TextMeshProUGUI>();
+        aux1.Add(IfEsFactibleText);
+        aux1.Add(IfEsFactibleText);
+        textos.Add(aux1);
+        aux1 = new List<TextMeshProUGUI>();
+        aux1.Add(defEsFactibleText);
+        aux1.Add(defEsFactibleText);
+        textos.Add(aux1);
+        aux1 = new List<TextMeshProUGUI>();
+        aux1.Add(colText);
+        aux1.Add(colText);
+        textos.Add(aux1);
+        aux1 = new List<TextMeshProUGUI>();
+        aux1.Add(diag1Text);
+        aux1.Add(diag1Text);
+        textos.Add(aux1);
+        aux1 = new List<TextMeshProUGUI>();
+        aux1.Add(diag2Text);
+        aux1.Add(diag2Text);
+        textos.Add(aux1);
+        aux1 = new List<TextMeshProUGUI>();
+        aux1.Add(returnEsFactibleText);
+        aux1.Add(returnEsFactibleText);
+        textos.Add(aux1);
+        aux1 = new List<TextMeshProUGUI>();
+        aux1.Add(tab1Text);
+        aux1.Add(col1Text);
+        textos.Add(aux1);
+        aux1 = new List<TextMeshProUGUI>();
+        aux1.Add(NReinasRecursiveText);
+        aux1.Add(NReinasRecursiveText);
+        textos.Add(aux1);
+
+        menu.addTextos(textos);
+
+        List<string> aux = new List<string>();
+        aux.Add("def NReinasVA(tab, fil):");
+        aux.Add("def NReinasVA(tab, fil):");
+        textosSinPintar.Add(aux);
+        aux = new List<string>();
+        aux.Add("if fil == np.size(tab, 0):");
+        aux.Add("if fil == np.size(tab, 0):");
+        textosSinPintar.Add(aux);
+        aux = new List<string>();
+        aux.Add("esSol = True");
+        aux.Add("else:");
+        textosSinPintar.Add(aux);
+        aux = new List<string>();
+        aux.Add("return tab, esSol");
+        aux.Add("esSol = False");
+        textosSinPintar.Add(aux);
+        aux = new List<string>();
+        aux.Add("col = 0");
+        aux.Add("col = 0");
+        textosSinPintar.Add(aux);
+        aux = new List<string>();
+        aux.Add("while not esSol and col < np.size(tab, 1):");
+        aux.Add("while not esSol and col < np.size(tab, 1):");
+        textosSinPintar.Add(aux);
+        aux = new List<string>();
+        aux.Add("if EsFactible(tab, fil, col):");
+        aux.Add("if EsFactible(tab, fil, col):");
+        textosSinPintar.Add(aux);
+        aux = new List<string>();
+        aux.Add("def EsFactible(tab, f, c):");
+        aux.Add("def EsFactible(tab, f, c):");
+        textosSinPintar.Add(aux);
+        aux = new List<string>();
+        aux.Add("colOk = np.max(tab[:, c]) == 0 ");
+        aux.Add("colOk = np.max(tab[:, c]) == 0 ");
+        textosSinPintar.Add(aux);
+        aux = new List<string>();
+        aux.Add("diag1Ok = True\n" +
+                                 "indF = f - 1\n" +
+                                 "indC = c - 1\n" +
+                                 "while diag1Ok and indF >= 0 and indC >= 0:\n" +
+                                 "      diag1Ok = tab[indF, indC] == 0\n" +
+                                 "      indF -= 1\n" +
+                                 "      indC -= 1\n");
+        aux.Add("diag1Ok = True\n" +
+                                 "indF = f - 1\n" +
+                                 "indC = c - 1\n" +
+                                 "while diag1Ok and indF >= 0 and indC >= 0:\n" +
+                                 "      diag1Ok = tab[indF, indC] == 0\n" +
+                                 "      indF -= 1\n" +
+                                 "      indC -= 1\n");
+        textosSinPintar.Add(aux);
+        aux = new List<string>();
+        aux.Add("diag2Ok = True\n" +
+                                 "indF = f - 1\n" +
+                                 "indC = c + 1\n" +
+                                 "while diag2Ok and indF >= 0 and indC < np.size(tab,1):\n" +
+                                 "      diag2Ok = tab[indF, indC] == 0\n" +
+                                 "      indF -= 1\n" +
+                                 "      indC += 1\n");
+        aux.Add("diag2Ok = True\n" +
+                                 "indF = f - 1\n" +
+                                 "indC = c + 1\n" +
+                                 "while diag2Ok and indF >= 0 and indC < np.size(tab,1):\n" +
+                                 "      diag2Ok = tab[indF, indC] == 0\n" +
+                                 "      indF -= 1\n" +
+                                 "      indC += 1\n");
+        textosSinPintar.Add(aux);
+        aux = new List<string>();
+        aux.Add("return colOk and diag1Ok and diag2Ok");
+        aux.Add("return colOk and diag1Ok and diag2Ok");
+        textosSinPintar.Add(aux);
+        aux = new List<string>();
+        aux.Add("tab[fil][col] = 1");
+        aux.Add("col += 1");
+        textosSinPintar.Add(aux);
+        aux = new List<string>();
+        aux.Add("[tab, esSol] = NReinasVA(tab, fil + 1)");
+        aux.Add("[tab, esSol] = NReinasVA(tab, fil + 1)");
+        textosSinPintar.Add(aux);
+    }
+
+    //Llama la funcion play del codigo comnpartido
     public void playFunc()
     {
-        if (firstTime && gameObject.active)
+        if (gameObject.active)
         {
-            playButton.sprite = Resources.Load<Sprite>("pause");
-            firstTime = false;
-            tamaño = GameState.gameState.tamaño;
-            int[,] board = new int[tamaño, tamaño];
-            int[,] boardVisualizer = new int[tamaño, tamaño];
-            boardHistory = new List<DataHistory>();
-            vectorSolucion = new List<int>();
-            NReinas(board, 0, boardVisualizer, vectorSolucion);
-            boardSolved = true;
+            if (play)
+            {
+                StopAllCoroutines();
+            }
+            var results = menu.playFunc(play, backStep, firstTime, nextStep, recuperarEstadoCorutina, playButton, nextText);
+            play = results.Item1;
+            backStep = results.Item2;
+            firstTime = results.Item3;
+            recuperarEstadoCorutina = results.Item4;
+            nextText = results.Item5;
         }
-        else if (play && this.gameObject.activeSelf)
-        {
-            playButton.sprite = Resources.Load<Sprite>("play");
-            play = false;
-            StopAllCoroutines();
-        }
-        else if (!play && this.gameObject.activeSelf)
-        {
-            playButton.sprite = Resources.Load<Sprite>("pause");
-            play = true;
-            recuperarEstadoCorutina = true;
-        }
-
     }
 
     public void nextStepFunc()
     {
-        if (!play && gameObject.active)
+        if (!play && gameObject.active && !firstTime && !moverReina)
         {
-            if (i < boardHistory.Count - 1)
+            backStep = false;
+            nextStep2 = true;
+            if (fase == 12 && !(boardHistory[i].diag1Ok && boardHistory[i].diag2Ok && boardHistory[i].colOk))
             {
-                nextStep = true;
-                if (fase >= 13 && boardHistory[i].colOk && boardHistory[i].diag1Ok && boardHistory[i].diag2Ok)
-                {
-                    fase = 2;
-
-                    foreach (TextMeshProUGUI t in pilaEjecucion[i].pilaPintado)
-                    {
-                        t.color = Color.white;
-                    }
-
-                    i += 1;
-                    List<TextMeshProUGUI> auxiliar = new List<TextMeshProUGUI>();
-                    List<int> fasesAsociadas = new List<int>();
-                    TextColor tableroEjecucion = new TextColor(fasesAsociadas, auxiliar);
-                    pilaEjecucion.Add(tableroEjecucion);
-                }
-                else if (fase >= 12 && !(boardHistory[i].colOk && boardHistory[i].diag1Ok && boardHistory[i].diag2Ok))
-                {
-                    fase = 7;
-                    
-                    foreach (TextMeshProUGUI t in pilaEjecucion[i].pilaPintado)
-                    {
-                        t.color = Color.white;
-                    }
-                    i += 1;
-                    List<TextMeshProUGUI> auxiliar = new List<TextMeshProUGUI>();
-                    List<int> fasesAsociadas = new List<int>();
-                    TextColor tableroEjecucion = new TextColor(fasesAsociadas, auxiliar);
-                    pilaEjecucion.Add(tableroEjecucion);
-
-                }
-                else
-                {
-                    if (pilaEjecucion[i].fases.Count == 0)
-                    {
-                        fase = 2;
-                    }
-                    else
-                    {
-                        int lastObject = 0;
-                        foreach (int t in pilaEjecucion[i].fases)
-                        {
-                            lastObject = t;
-                        }
-                        fase = lastObject;
-                        fase += 1;
-                    }
-                }
+                fase = 5;
+                i += 1;
+                List<TextMeshProUGUI> auxiliar = new List<TextMeshProUGUI>();
+                List<int> fasesAsociadas = new List<int>();
+                BoardHistory tableroEjecucion = new BoardHistory(fasesAsociadas, auxiliar);
+                //Añade una nueva pila de ejecucion
+                menu.pilaEjecucion.Add(tableroEjecucion);
+                faseDePintado(boardHistory[i], fase, boardHistory.Count - 1 == i);
             }
-            else if (i == boardHistory.Count - 1 && !finished)
+            else if (fase == 13)
             {
-                nextStep = true;
-                if (pilaEjecucion[i].fases.Count == 0)
+                fase = 0;
+                i += 1;
+                List<TextMeshProUGUI> auxiliar = new List<TextMeshProUGUI>();
+                List<int> fasesAsociadas = new List<int>();
+                BoardHistory tableroEjecucion = new BoardHistory(fasesAsociadas, auxiliar);
+                //Añade una nueva pila de ejecucion
+                menu.pilaEjecucion.Add(tableroEjecucion);
+                faseDePintado(boardHistory[i], fase, boardHistory.Count - 1 == i);
+            }
+            else if (fase == 3 && boardHistory.Count - 1 == i)
+            {
+                //Ejecucion terminada;
+            }
+            else
+            {
+                fase += 1;
+                if (i != 0)
                 {
-                    fase = 2;
+                    faseDePintado(boardHistory[i], fase, boardHistory.Count - 1 == i);
                 }
-                else if (fase >= 13)
+                else if (i < 0)
                 {
-                    fase = 2;
+                    i += 1;
+                    List<TextMeshProUGUI> auxiliar = new List<TextMeshProUGUI>();
+                    List<int> fasesAsociadas = new List<int>();
+                    BoardHistory tableroEjecucion = new BoardHistory(fasesAsociadas, auxiliar);
+                    faseDePintado(boardHistory[i], fase, boardHistory.Count - 1 == i);
                 }
                 else
                 {
-                    int lastObject = 0;
-                    foreach (int t in pilaEjecucion[i].fases)
-                    {
-                        lastObject = t;
-                    }
-                    fase = lastObject;
-                    fase += 1;
+                    faseDePintado(boardHistory[i], fase, boardHistory.Count - 1 == i);
                 }
-
             }
         }
     }
 
+    //Llama la funcion backStepFunc del codigo comnpartido
     public void backStepFunc()
     {
-        if (!play && !moverReina && gameObject.active)
+        if (gameObject.active && !play)
         {
-            if (i >= 0)
+            var results = menu.backStepFunc(backStep, fase, i);
+            backStep = results.Item1;
+            fase = results.Item2;
+            i = results.Item3;
+            if (i != 0)
             {
-                backStep= true;
-                if (pilaEjecucion[i].pilaPintado.Count > 1)
-                {
-                    //Eliminamos el ultimo valor del ultimo objeto.
-                    int contador = pilaEjecucion[i].pilaPintado.Count;
-                    TextMeshProUGUI ultimoObjetoText = new TextMeshProUGUI();
-                    foreach (TextMeshProUGUI t in pilaEjecucion[i].pilaPintado)
-                    {
-                        ultimoObjetoText = t;
-                    }
-                    ultimoObjetoText.color = Color.white;
-                    pilaEjecucion[i].pilaPintado.Remove(ultimoObjetoText);
-
-                    int ultimoObjetoInt = 0;
-                    foreach (int t in pilaEjecucion[i].fases)
-                    {
-                        ultimoObjetoInt = t;
-                    }
-                    pilaEjecucion[i].fases.Remove(ultimoObjetoInt);
-
-                    int lastObject = 0;
-                    foreach (int t in pilaEjecucion[i].fases)
-                    {
-                        lastObject = t;
-                    }
-                    fase = lastObject;
-                    finished = false;
-
-                    /*if (contador >= 2)
-                    {
-                        //Coloreamos el penultimo objeto.
-                        foreach (TextMeshProUGUI t in pilaEjecucion[i].pilaPintado)
-                        {
-                            ultimoObjetoText = t;
-                        }
-                        ultimoObjetoText.color = Color.cyan;
-                    }
-                    else if (i > 0)
-                    {
-                        //Coloreamos el ultimo objeto del tablero anterior.
-                        foreach (TextMeshProUGUI t in pilaEjecucion[i - 1].pilaPintado)
-                        {
-                            ultimoObjetoText = t;
-                        }
-                        ultimoObjetoText.color = Color.cyan;
-                    }
-                    */
-                }
-                else
-                {
-                    if (i > 0)
-                    {
-                        TextMeshProUGUI ultimoObjetoText = new TextMeshProUGUI();
-                        foreach (TextMeshProUGUI t in pilaEjecucion[i].pilaPintado)
-                        {
-                            ultimoObjetoText = t;
-                        }
-                        ultimoObjetoText.color = Color.white;
-                        pilaEjecucion[i].pilaPintado.Remove(ultimoObjetoText);
-
-                        int ultimoObjetoInt = 0;
-                        foreach (int t in pilaEjecucion[i].fases)
-                        {
-                            ultimoObjetoInt = t;
-                        }
-                        pilaEjecucion[i].fases.Remove(ultimoObjetoInt);
-
-                        i -= 1;
-
-                        int lastObject = 0;
-                        foreach (int t in pilaEjecucion[i].fases)
-                        {
-                            lastObject = t;
-                        }
-                        fase = lastObject;
-
-                        //No entiendo porque no me deja borrar objetos.
-                        /*List<TextMeshProUGUI> aux = new List<TextMeshProUGUI>();
-                        List<int> fasesAsociadas = new List<int>();
-                        TextColor lastObject = new TextColor(fasesAsociadas, aux);
-                        foreach (TextColor t in pilaEjecucion)
-                        {
-                            lastObject = t;
-                        }
-                        pilaEjecucion.Remove(lastObject);*/
-                    }
-                }
-                
+                faseDePintado(boardHistory[i], fase, boardHistory.Count - 1 == i);
             }
+            else
+            {
+                faseDePintado(boardHistory[i], fase, boardHistory.Count - 1 == i);
+            }
+
         }
     }
 
