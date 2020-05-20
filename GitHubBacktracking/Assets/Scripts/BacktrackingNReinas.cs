@@ -7,7 +7,7 @@ using UnityEngine.UI;
 using TMPro;
 
 
-public class BacktrackingAdaptacion : MonoBehaviour
+public class BacktrackingNReinas : MonoBehaviour
 {
     //Declaración de variables públicas.
     public int tamaño = 4;

@@ -251,7 +251,7 @@ public class BacktrackingLaberinto : MonoBehaviour
                 {
                     filActualText.text = "Fil actual: " + (inicial.fil + 1);
                     colActualText.text = "Col actual: " + (inicial.col + 1);
-                    printLaberintoFirstStep(inicial, inicial);
+                    printLaberintoFirstStep(laberintoHistory, inicial);
                     camino = 1;
 
                 }
@@ -425,7 +425,7 @@ public class BacktrackingLaberinto : MonoBehaviour
                     {
                         //Dibujamos el camino con flechas
                         int[][,] mov = new int[][,] { new int[,] { { 1, 0 } }, new int[,] { { 0, 1 } }, new int[,] { { -1, 0 } }, new int[,] { { 0, -1 } } };
-                        if (laberintoActual.esFactible && (i != 1 || j != 1))
+                        if ((laberintoActual.esFactible && (i != 1 || j != 1)) || (backStep && (i != 1 || j != 1)) && (i != laberintoActual.fil || j != laberintoActual.col))
                         {
                             if (laberintoActual.board[i, j] == laberintoActual.board[(i + mov[0][0, 0]), (j + mov[0][0, 1])] - 1)
                             {
@@ -550,17 +550,22 @@ public class BacktrackingLaberinto : MonoBehaviour
                 }
                 else
                 {
+                    Color color = piezasTablero[i, j].transform.GetChild(0).gameObject.GetComponent<Image>().color;
                     //Pinta lo visual
                     if (laberintoActual.board[i, j] == -1)
                     {
+                        color.a = 0f;
+                        piezasTablero[i, j].transform.GetChild(0).gameObject.GetComponent<Image>().color = color;
                         piezasTablero[i, j].GetComponent<Image>().color = Color.black;
                     }
                     else if (laberintoActual.board[i, j] == 0)
                     {
+                        color.a = 0f;
+                        piezasTablero[i, j].transform.GetChild(0).gameObject.GetComponent<Image>().color = color;
                         piezasTablero[i, j].GetComponent<Image>().color = Color.white;
                     }
                     else
-                    {
+                    { 
                         piezasTablero[i, j].GetComponent<Image>().color = Color.grey;
                     }
                     //Pinta la matriz
